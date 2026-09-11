@@ -1,4 +1,4 @@
-import { toRiskLevel } from '@/lib/risk'
+import { toRiskLevel } from '../lib/risk.js'
 import type {
   AlertType,
   EntityDetail,
@@ -11,7 +11,7 @@ import type {
   LinkedEntity,
   TravelHop,
   Wallet,
-} from '@/types/intel'
+} from '../types/intel.js'
 
 export const GENERATE_STEPS = [
   'Validating records',

@@ -82,6 +82,7 @@ export function AlertDetailPage() {
               highlightPath={graphState.data.highlightPath}
               onSelect={selectNode}
               autoHighlightPath={alert.entityId === 'entity-17'}
+              alwaysLabel={alert.entityId !== 'entity-17'}
             />
           ) : graphState.status === 'error' ? (
             <ErrorState message={graphState.error.message} onRetry={graphState.reload} />

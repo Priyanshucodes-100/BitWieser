@@ -13,6 +13,7 @@ export function GraphPage() {
   const state = useAsync(() => getGraph(entityId).then((r) => r.data), `graph:${entityId ?? 'all'}`)
   const { selectedNode, selectNode } = useAppState()
 
+  const generatedCluster = Boolean(entityId && entityId !== 'entity-17')
   const focus = useMemo(() => {
     if (state.status !== 'ready') return []
     if (entityId) return state.data.focusNodeIds
@@ -32,7 +33,8 @@ export function GraphPage() {
             focusNodeIds={focus}
             highlightPath={state.data.highlightPath}
             onSelect={selectNode}
-            autoHighlightPath
+            autoHighlightPath={!generatedCluster}
+            alwaysLabel={generatedCluster}
           />
           <InspectorPanel node={selectedNode} />
         </div>

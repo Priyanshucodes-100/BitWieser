@@ -1,5 +1,7 @@
+import { useMemo } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getEntity, getGraph } from '@/api/client'
+import { buildEntityNeighborhoodGraph } from '@/api/pipeline'
 import { GraphView } from '@/components/graph/GraphCanvas'
 import { ConfidenceBar, ErrorState, Fact, PageHeader, PageSkeleton, RiskChip } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
@@ -11,6 +13,14 @@ export function EntityPage() {
   const detailState = useAsync(() => getEntity(id).then((r) => r.data), `entity:${id}`)
   const graphState = useAsync(() => getGraph(id).then((r) => r.data), `entity-graph:${id}`)
   const { selectNode } = useAppState()
+  const isDemoLead = id === 'entity-17'
+  const graph = useMemo(() => {
+    if (detailState.status !== 'ready') return null
+    if (isDemoLead) {
+      return graphState.status === 'ready' ? graphState.data : null
+    }
+    return buildEntityNeighborhoodGraph(detailState.data)
+  }, [detailState, graphState, isDemoLead])
 
   if (detailState.status === 'loading') return <PageSkeleton />
   if (detailState.status === 'error') {
@@ -51,19 +61,22 @@ export function EntityPage() {
 
       <section className="mb-4">
         <p className="label mb-2">Graph · related entities and connections</p>
-        {graphState.status === 'ready' && graphState.data.nodes.length > 0 ? (
+        {graph && graph.nodes.length > 0 ? (
           <GraphView
-            nodes={graphState.data.nodes}
-            edges={graphState.data.edges}
-            focusNodeIds={graphState.data.focusNodeIds}
-            highlightPath={graphState.data.highlightPath}
+            nodes={graph.nodes}
+            edges={graph.edges}
+            focusNodeIds={graph.focusNodeIds}
+            highlightPath={graph.highlightPath}
             onSelect={selectNode}
-            autoHighlightPath
+            autoHighlightPath={isDemoLead}
+            alwaysLabel={!isDemoLead}
           />
-        ) : graphState.status === 'error' ? (
+        ) : isDemoLead && graphState.status === 'error' ? (
           <ErrorState message={graphState.error.message} onRetry={graphState.reload} />
-        ) : (
+        ) : isDemoLead && graphState.status === 'loading' ? (
           <PageSkeleton />
+        ) : (
+          <p className="text-sm text-beige-muted">No graph for this entity.</p>
         )}
       </section>
 

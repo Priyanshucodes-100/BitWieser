@@ -1,25 +1,3 @@
-import {
-  alerts,
-  events as demoEvents,
-  getEntityDetail,
-  getOverview,
-  graphEdges,
-  graphNodes,
-  highlightPath,
-  ingestStatus,
-  neighborhoodIds,
-  searchIndex,
-} from '@/mocks/demoDataset'
-import { GENERATE_STEPS, OVERVIEW_GRAPH_ID, runGeneratePipeline } from '@/api/pipeline'
-import { parseCapture } from '@/lib/parseCapture'
-import { delay, mockLatency } from '@/lib/utils'
-import {
-  getGeneratedDetail,
-  getGeneratedGraph,
-  getLoadedEvents,
-  setGeneratedSession,
-  setLoadedEvents,
-} from '@/mocks/sessionStore'
 import type {
   Alert,
   AlertFilters,
@@ -30,182 +8,139 @@ import type {
   GraphPayload,
   HealthResponse,
   IngestResponse,
-  IngestStatus,
   OverviewStats,
   SearchHit,
 } from '@/types/intel'
 
-function clone<T>(value: T): T {
-  return structuredClone(value)
+const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3001').replace(/\/$/, '')
+
+interface GenerateJobPayload {
+  jobId: string
+  status: 'queued' | 'running' | 'done' | 'error'
+  step: string | null
+  error: string | null
+  eventCount: number | null
+  rows?: EntityTableRow[]
+  graph?: GraphPayload
+}
+
+async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers)
+  const isForm = typeof FormData !== 'undefined' && init.body instanceof FormData
+  if (!isForm && init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json')
+  }
+  let res: Response
+  try {
+    res = await fetch(`${API_URL}${path}`, { ...init, headers })
+  } catch {
+    throw new Error('Cannot reach ChainWatch API. Start the backend on port 3001.')
+  }
+  const text = await res.text()
+  let json: unknown = null
+  if (text) {
+    try {
+      json = JSON.parse(text) as unknown
+    } catch {
+      json = null
+    }
+  }
+  if (!res.ok) {
+    const message =
+      json && typeof json === 'object' && json !== null && 'message' in json
+        ? String((json as { message: unknown }).message)
+        : `Request failed (${res.status})`
+    throw new Error(message)
+  }
+  return json as T
+}
+
+function qs(params: Record<string, string | undefined>): string {
+  const sp = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === '') continue
+    sp.set(key, value)
+  }
+  const encoded = sp.toString()
+  return encoded ? `?${encoded}` : ''
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 export async function getHealth(): Promise<HealthResponse> {
-  await mockLatency()
-  return { status: 'ok', offline: true, service: 'chainwatch-mock' }
+  return api<HealthResponse>('/health')
 }
 
 export async function getOverviewStats(): Promise<ApiItemResponse<OverviewStats>> {
-  await mockLatency()
-  return { data: clone(getOverview()) }
+  return api<ApiItemResponse<OverviewStats>>('/overview')
 }
 
-export async function getAlerts(
-  filters: AlertFilters = {},
-): Promise<ApiListResponse<Alert[]>> {
-  await mockLatency()
-  let rows = clone(alerts)
-
-  if (filters.risk && filters.risk !== 'ALL') {
-    rows = rows.filter((a) => a.risk === filters.risk)
-  }
-  if (filters.type && filters.type !== 'ALL') {
-    rows = rows.filter((a) => a.type === filters.type)
-  }
-  if (filters.country && filters.country !== 'ALL') {
-    rows = rows.filter((a) => a.countryHops.includes(filters.country as string))
-  }
-  if (filters.q?.trim()) {
-    const q = filters.q.trim().toLowerCase()
-    rows = rows.filter(
-      (a) =>
-        a.title.toLowerCase().includes(q) ||
-        a.entityId.toLowerCase().includes(q) ||
-        a.type.includes(q) ||
-        a.wallets.some((w) => w.label.toLowerCase().includes(q) || w.address.toLowerCase().includes(q)) ||
-        a.ips.some((ip) => ip.ip.includes(q) || ip.countryCode.toLowerCase() === q),
-    )
-  }
-
-  const sortBy = filters.sortBy ?? 'rank'
-  rows.sort((a, b) => {
-    const dir = filters.sortDir === 'desc' ? -1 : 1
-    if (sortBy === 'rank') return (a.rank - b.rank) * dir
-    if (sortBy === 'confidence') return (a.confidence - b.confidence) * dir
-    if (sortBy === 'lastActivity') return a.lastActivity.localeCompare(b.lastActivity) * dir
-    return a.title.localeCompare(b.title) * dir
-  })
-
-  return {
-    data: rows,
-    meta: { total: rows.length, ingest: clone(ingestStatus) },
-  }
+export async function getAlerts(filters: AlertFilters = {}): Promise<ApiListResponse<Alert[]>> {
+  return api<ApiListResponse<Alert[]>>(
+    `/alerts${qs({
+      risk: filters.risk,
+      type: filters.type,
+      country: filters.country,
+      q: filters.q,
+      sortBy: filters.sortBy,
+      sortDir: filters.sortDir,
+    })}`,
+  )
 }
 
 export async function getAlert(id: string): Promise<ApiItemResponse<Alert>> {
-  await mockLatency()
-  const found = alerts.find((a) => a.id === id)
-  if (!found) {
-    throw new Error(`Alert ${id} not found`)
-  }
-  return { data: clone(found) }
+  return api<ApiItemResponse<Alert>>(`/alerts/${encodeURIComponent(id)}`)
 }
 
 export async function getGraph(entityId?: string): Promise<ApiItemResponse<GraphPayload>> {
-  await mockLatency()
-  if (entityId) {
-    const generated = getGeneratedGraph(entityId)
-    if (generated) return { data: clone(generated) }
-  } else {
-    const overview = getGeneratedGraph(OVERVIEW_GRAPH_ID)
-    if (overview) return { data: clone(overview) }
-  }
-  const focusNodeIds = entityId ? neighborhoodIds(entityId) : [...highlightPath]
-  return {
-    data: {
-      nodes: clone(graphNodes),
-      edges: clone(graphEdges),
-      focusNodeIds,
-      highlightPath: [...highlightPath],
-    },
-  }
+  const path = entityId ? `/graph${qs({ entityId })}` : '/graph'
+  return api<ApiItemResponse<GraphPayload>>(path)
 }
 
 export async function getEntity(id: string): Promise<ApiItemResponse<EntityDetail>> {
-  await mockLatency()
-  const generated = getGeneratedDetail(id)
-  if (generated) return { data: clone(generated) }
-  const detail = getEntityDetail(id)
-  if (!detail) {
-    throw new Error(`Entity ${id} not found`)
-  }
-  return { data: clone(detail) }
+  return api<ApiItemResponse<EntityDetail>>(`/entities/${encodeURIComponent(id)}`)
 }
 
 export async function ingestMock(_file?: File): Promise<IngestResponse> {
-  await delay(800)
-  const source = _file ? undefined : demoEvents
-  if (source) setLoadedEvents(clone(source))
-  const next: IngestStatus = {
-    ...ingestStatus,
-    loaded: true,
-    lastIngestAt: new Date().toISOString(),
-    datasetName: _file?.name ?? ingestStatus.datasetName,
-    eventCount: source?.length ?? ingestStatus.eventCount,
-  }
-  return {
-    data: clone(next),
-    message: `Loaded ${next.eventCount} events. Ready to generate.`,
-  }
+  if (_file) return loadCaptureFile(_file)
+  return api<IngestResponse>('/ingest', { method: 'POST', body: JSON.stringify({ demo: true }) })
 }
 
 export async function loadCaptureFile(file: File): Promise<IngestResponse> {
-  const text = await file.text()
-  await delay(400)
-  const parsed = parseCapture(text, file.name)
-  if (parsed.error && parsed.events.length === 0) {
-    throw new Error(parsed.error)
-  }
-  if (parsed.events.length === 0) {
-    throw new Error(
-      `Could not load ${file.name}: no valid records. Need src_ip or txid on each row, plus headers such as timestamp, input_addresses[], output_addresses[].`,
-    )
-  }
-  setLoadedEvents(clone(parsed.events))
-  const next: IngestStatus = {
-    ...ingestStatus,
-    loaded: true,
-    datasetName: file.name,
-    eventCount: parsed.events.length,
-    parseErrors: parsed.parseErrors,
-    geoipEnriched: parsed.events.filter((e) => Boolean(e.geoCountry)).length,
-    lastIngestAt: new Date().toISOString(),
-    offline: true,
-  }
-  return {
-    data: clone(next),
-    message: `Loaded ${parsed.events.length} records from ${file.name}${parsed.parseErrors ? ` · ${parsed.parseErrors} rows skipped` : ''}.`,
-  }
+  const body = new FormData()
+  body.append('file', file)
+  return api<IngestResponse>('/ingest', { method: 'POST', body })
 }
 
 export async function generateFromLoaded(
   onProgress?: (step: string) => void,
 ): Promise<{ rows: EntityTableRow[]; eventCount: number; graph: GraphPayload }> {
-  let loaded = getLoadedEvents()
-  if (loaded.length === 0) {
-    setLoadedEvents(clone(demoEvents))
-    loaded = getLoadedEvents()
-  }
-  if (loaded.length === 0) {
-    throw new Error('Generate data only works after a dataset is loaded. Choose a file or load the demo dataset first.')
-  }
-  for (const step of GENERATE_STEPS) {
-    onProgress?.(step)
-    await delay(450)
-  }
-  const bundle = runGeneratePipeline(loaded)
-  setGeneratedSession(bundle)
-  return {
-    rows: clone(bundle.rows),
-    eventCount: loaded.length,
-    graph: clone(bundle.graphs[OVERVIEW_GRAPH_ID] ?? { nodes: [], edges: [], focusNodeIds: [], highlightPath: [] }),
+  const started = await api<ApiItemResponse<GenerateJobPayload>>('/generate', { method: 'POST' })
+  const jobId = started.data.jobId
+  if (started.data.step) onProgress?.(started.data.step)
+
+  for (;;) {
+    const { data } = await api<ApiItemResponse<GenerateJobPayload>>(`/generate/${encodeURIComponent(jobId)}`)
+    if (data.step) onProgress?.(data.step)
+    if (data.status === 'done') {
+      return {
+        rows: data.rows ?? [],
+        eventCount: data.eventCount ?? 0,
+        graph: data.graph ?? { nodes: [], edges: [], focusNodeIds: [], highlightPath: [] },
+      }
+    }
+    if (data.status === 'error') {
+      throw new Error(data.error ?? 'Generation failed. The backend could not validate, enrich, or score this dataset.')
+    }
+    await sleep(250)
   }
 }
 
 export async function searchConsole(q: string): Promise<SearchHit[]> {
-  await delayShort()
-  return searchIndex(q)
-}
-
-function delayShort(): Promise<void> {
-  return new Promise((r) => window.setTimeout(r, 80))
+  const hits = await api<SearchHit[]>(`/search${qs({ q })}`)
+  return Array.isArray(hits) ? hits : []
 }

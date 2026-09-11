@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+*.log
+.DS_Store
+
+# Local capture dumps (keep fixtures in backend/fixtures)
+uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep

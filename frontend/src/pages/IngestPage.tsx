@@ -59,8 +59,7 @@ export function IngestPage() {
       if (!ACCEPTED.some((ext) => lower.endsWith(ext))) {
         pushToast({
           tone: 'warn',
-          title: 'Unsupported file',
-          body: 'Accepts .csv, .json, or .xml.',
+          title: 'Use .csv, .json, or .xml',
         })
         return
       }
@@ -72,7 +71,7 @@ export function IngestPage() {
         const res = await loadCaptureFile(file)
         setIngest(res.data)
         setDatasetReady(true)
-        pushToast({ tone: 'ok', title: res.message })
+        pushToast({ tone: 'ok', title: `${res.data.eventCount} rows loaded` })
       } catch (err) {
         setDatasetReady(false)
         setGenerateError(err instanceof Error ? err.message : 'Failed to load the capture file.')
@@ -92,7 +91,7 @@ export function IngestPage() {
       const res = await ingestMock()
       setIngest(res.data)
       setDatasetReady(true)
-      pushToast({ tone: 'ok', title: res.message })
+      pushToast({ tone: 'ok', title: `${res.data.eventCount} rows loaded` })
     } catch (err) {
       setDatasetReady(false)
       setGenerateError(err instanceof Error ? err.message : 'Failed to load the demo dataset.')
@@ -123,11 +122,7 @@ export function IngestPage() {
     } catch (err) {
       setResults(null)
       setOverviewGraph(null)
-      setGenerateError(
-        err instanceof Error
-          ? err.message
-          : 'Generation failed. The backend could not validate, enrich, or score this dataset.',
-      )
+      setGenerateError(err instanceof Error ? err.message : 'Generate failed.')
     } finally {
       setBusy(false)
       setGenerateStep(null)
@@ -161,7 +156,7 @@ export function IngestPage() {
 
   return (
     <div>
-      <PageHeader kicker="Ingest" title="Load capture" description="Load a dataset, then generate scored entities." />
+      <PageHeader kicker="Ingest" title="Load capture" />
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div>
@@ -183,7 +178,7 @@ export function IngestPage() {
             style={{ borderColor: 'var(--cw-border)' }}
           >
             <p className="label">Drop capture</p>
-            <p className="mt-2 text-sm text-beige-muted">CSV / JSON / XML</p>
+            <p className="mt-2 text-sm text-beige-muted">CSV · JSON · XML</p>
             <label className="btn-pill btn-pill-primary mt-5 cursor-pointer">
               Choose file
               <input
@@ -216,9 +211,9 @@ export function IngestPage() {
               {generateStep ? generateStep : 'Generate data'}
             </button>
             {!datasetReady ? (
-              <p className="mt-2 text-xs text-beige-muted">Load a file or the demo dataset before generating.</p>
+              <p className="mt-2 text-xs text-beige-muted">Load data first.</p>
             ) : (
-              <p className="mt-2 text-xs text-beige-muted">{ingest.datasetName} loaded · {ingest.eventCount} rows</p>
+              <p className="mt-2 text-xs text-beige-muted">{ingest.eventCount} rows</p>
             )}
             <div className="mt-4 flex items-center justify-center gap-4 text-beige-muted">
               <FileSpreadsheet className="h-4 w-4" aria-hidden />
@@ -229,14 +224,13 @@ export function IngestPage() {
 
           {generateStep ? (
             <div className="panel mt-4 p-4" role="status" aria-live="polite">
-              <p className="label mb-3">Generation progress</p>
               <ol className="space-y-2 text-sm">
                 {GENERATE_STEPS.map((step) => {
                   const current = step === generateStep
                   const done = GENERATE_STEPS.indexOf(step) < GENERATE_STEPS.indexOf(generateStep as (typeof GENERATE_STEPS)[number])
                   return (
                     <li key={step} className={current ? 'text-beige' : 'text-beige-muted'}>
-                      {done ? 'Done · ' : current ? 'Running · ' : ''}
+                      {done ? '✓ ' : current ? '· ' : ''}
                       {step}
                     </li>
                   )
@@ -251,50 +245,45 @@ export function IngestPage() {
             </div>
           ) : null}
 
-          <div className="panel mt-4 p-4">
-            <p className="label mb-3">Fields</p>
-            <div className="flex flex-wrap gap-1.5">
-              {FIELDS.map((f) => (
-                <span key={f.name} className="filter-pill" title={`${f.example} · ${f.required}`}>
-                  {f.name}
-                </span>
-              ))}
+          {!results ? (
+            <div className="panel mt-4 p-4">
+              <p className="label mb-3">Fields</p>
+              <div className="flex flex-wrap gap-1.5">
+                {FIELDS.map((f) => (
+                  <span key={f.name} className="filter-pill" title={`${f.example} · ${f.required}`}>
+                    {f.name}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
         </div>
 
         <aside className="panel p-4">
           <p className="label">Last ingest</p>
           <dl className="mt-4 space-y-3 text-sm">
-            <Row k="Dataset" v={ingest.datasetName} />
-            <Row k="Case" v={ingest.caseName} />
+            <Row k="File" v={ingest.datasetName} />
             <Row k="Rows" v={String(ingest.eventCount)} />
-            <Row k="Parse errors" v={String(ingest.parseErrors)} />
-            <Row k="GeoIP enriched" v={String(ingest.geoipEnriched)} />
-            <Row k="Last ingest" v={ingest.lastIngestAt ? formatTs(ingest.lastIngestAt) : '—'} />
-            <Row k="Mode" v={ingest.offline ? 'Offline mock' : 'Live'} />
+            {ingest.parseErrors > 0 ? <Row k="Skipped" v={String(ingest.parseErrors)} /> : null}
+            <Row k="When" v={ingest.lastIngestAt ? formatTs(ingest.lastIngestAt) : '—'} />
           </dl>
-          <p className="mt-6 text-xs text-beige-muted">Swap point: src/api/client.ts</p>
         </aside>
       </div>
 
       {results ? (
         <section ref={resultsRef} className="mt-6">
-          <PageHeader
-            kicker="Results"
-            title="Generated entities"
-            description={`${visibleRows.length} of ${results.length} entities · HIGH / MEDIUM / LOW marked on each row`}
-          />
+          <PageHeader kicker="Results" title="Entities" description={`${visibleRows.length}/${results.length}`} />
           {overviewGraph && overviewGraph.nodes.length > 0 ? (
             <div className="mb-4">
-              <p className="label mb-2">Graph · all entities in this dataset</p>
+              <p className="label mb-2">Graph</p>
               <GraphView
                 nodes={overviewGraph.nodes}
                 edges={overviewGraph.edges}
                 focusNodeIds={overviewGraph.focusNodeIds}
                 highlightPath={overviewGraph.highlightPath}
                 onSelect={selectNode}
-                autoHighlightPath
+                autoHighlightPath={false}
+                alwaysLabel
               />
             </div>
           ) : null}
@@ -346,8 +335,8 @@ export function IngestPage() {
           </div>
           {visibleRows.length === 0 ? (
             <EmptyState
-              title="No matching entities"
-              body="Change risk, country, date, amount, or type filters."
+              title="No matches"
+              body="Clear filters."
               action={
                 <button
                   type="button"
