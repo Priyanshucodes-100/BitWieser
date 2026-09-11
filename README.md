@@ -1,4 +1,4 @@
-# ChainWatch (SIH 26146 · NTRO)
+# ChainWatch
 
 Offline Bitcoin-traffic investigation console. Synthetic **RansomPay** data only.
 
