@@ -369,7 +369,23 @@ export function buildEntityNeighborhoodGraph(detail: EntityDetail): GraphPayload
   }
 }
 
+const OVERVIEW_ENTITY_CAP = 48
+
+function riskRank(risk: string): number {
+  if (risk === 'HIGH') return 0
+  if (risk === 'MEDIUM') return 1
+  return 2
+}
+
 function buildOverviewGraph(details: Record<string, EntityDetail>): GraphPayload {
+  const ranked = Object.values(details).sort((a, b) => {
+    const byRisk = riskRank(a.cluster.risk) - riskRank(b.cluster.risk)
+    if (byRisk !== 0) return byRisk
+    return b.cluster.confidence - a.cluster.confidence
+  })
+  const picked = ranked.slice(0, OVERVIEW_ENTITY_CAP)
+  const pickedIds = new Set(picked.map((d) => d.cluster.id))
+
   const nodes: GraphNode[] = []
   const edges: GraphEdge[] = []
   const seen = new Set<string>()
@@ -379,15 +395,14 @@ function buildOverviewGraph(details: Record<string, EntityDetail>): GraphPayload
     seen.add(node.id)
     nodes.push(node)
   }
-
   const addEdge = (edge: GraphEdge) => {
     const key = `${edge.source}|${edge.target}|${edge.relation}`
-    if (seen.has(key)) return
+    if (seen.has(key) || !seen.has(edge.source) || !seen.has(edge.target)) return
     seen.add(key)
     edges.push(edge)
   }
 
-  for (const detail of Object.values(details)) {
+  for (const detail of picked) {
     const { cluster, members, sharedIps, linkedEntities } = detail
     addNode({
       id: cluster.id,
@@ -402,7 +417,8 @@ function buildOverviewGraph(details: Record<string, EntityDetail>): GraphPayload
         hops: cluster.countryHops.join(','),
       },
     })
-    for (const wallet of members) {
+    const wallet = members[0]
+    if (wallet) {
       const walletId = `wallet:${wallet.address}`
       addNode({
         id: walletId,
@@ -421,7 +437,8 @@ function buildOverviewGraph(details: Record<string, EntityDetail>): GraphPayload
         label: 'wallet',
       })
     }
-    for (const ip of sharedIps) {
+    const ip = sharedIps[0]
+    if (ip) {
       addNode({
         id: ip.id,
         kind: 'ip',
@@ -439,6 +456,7 @@ function buildOverviewGraph(details: Record<string, EntityDetail>): GraphPayload
       })
     }
     for (const linked of linkedEntities) {
+      if (!pickedIds.has(linked.id)) continue
       addEdge({
         id: `e-${cluster.id}-${linked.id}`,
         source: cluster.id,
@@ -449,12 +467,40 @@ function buildOverviewGraph(details: Record<string, EntityDetail>): GraphPayload
     }
   }
 
-  const entityIds = Object.keys(details)
+  const entityIds = picked.map((d) => d.cluster.id)
   return {
     nodes,
     edges,
     focusNodeIds: entityIds,
-    highlightPath: entityIds,
+    highlightPath: [],
+  }
+}
+
+const OVERVIEW_NODE_CAP = 120
+
+export function clipOverviewGraph(graph: GraphPayload): GraphPayload {
+  const entities = [...graph.nodes]
+    .filter((n) => n.kind === 'entity')
+    .sort((a, b) => {
+      const byRisk = riskRank(a.risk ?? '') - riskRank(b.risk ?? '')
+      if (byRisk !== 0) return byRisk
+      return a.flagged === b.flagged ? 0 : a.flagged ? -1 : 1
+    })
+    .slice(0, OVERVIEW_ENTITY_CAP)
+  const keep = new Set(entities.map((n) => n.id))
+  for (const edge of graph.edges) {
+    if (keep.has(edge.source)) keep.add(edge.target)
+    else if (keep.has(edge.target)) keep.add(edge.source)
+    if (keep.size >= OVERVIEW_NODE_CAP) break
+  }
+  if (keep.size === 0) graph.nodes.slice(0, OVERVIEW_NODE_CAP).forEach((n) => keep.add(n.id))
+  const nodes = graph.nodes.filter((n) => keep.has(n.id)).slice(0, OVERVIEW_NODE_CAP)
+  const ids = new Set(nodes.map((n) => n.id))
+  return {
+    nodes,
+    edges: graph.edges.filter((e) => ids.has(e.source) && ids.has(e.target)),
+    focusNodeIds: nodes.filter((n) => n.kind === 'entity').map((n) => n.id),
+    highlightPath: [],
   }
 }
 
@@ -540,7 +586,7 @@ export function runGeneratePipeline(rawEvents: Event[]): GenerateBundle {
     })
     const name = totalBtc > 0 ? `Entity-${n} · ${totalBtc.toFixed(3)} BTC` : `Entity-${n} · ${group.length} txs`
     const travelHistory = travelFromEvents(group)
-    const evidence = group.slice(0, 8).map((e) => ({
+    const evidence = group.map((e) => ({
       txid: e.txid,
       timestamp: e.timestamp,
       amountBtc: btcOf(e),
@@ -572,6 +618,7 @@ export function runGeneratePipeline(rawEvents: Event[]): GenerateBundle {
       countryHops: hops.length ? hops : [firstRow.geoCountry || 'XX'],
       walletCount: addrs.length,
       ipCount: ipList.length,
+      txCount: group.length,
     })
 
     details[entityId] = {

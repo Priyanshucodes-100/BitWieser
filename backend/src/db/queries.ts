@@ -7,6 +7,7 @@ import type {
   GraphPayload,
   IngestStatus,
 } from '../types/intel.js'
+import { jsonb } from '../lib/winText.js'
 import { pool } from './pool.js'
 
 export type IngestKind = 'demo' | 'file'
@@ -134,7 +135,7 @@ export async function replaceIngest(input: {
       await client.query('INSERT INTO events (ingest_id, seq, payload) VALUES ($1, $2, $3::jsonb)', [
         id,
         i,
-        JSON.stringify(input.events[i]),
+        jsonb(input.events[i]),
       ])
     }
     await client.query(
@@ -223,26 +224,26 @@ export async function persistGenerateResult(input: {
     for (const row of input.rows) {
       await client.query(
         'INSERT INTO entity_rows (generate_id, entity_id, rank, payload) VALUES ($1, $2, $3, $4::jsonb)',
-        [input.generateId, row.id, row.rank, JSON.stringify(row)],
+        [input.generateId, row.id, row.rank, jsonb(row)],
       )
     }
     for (const [entityId, detail] of Object.entries(input.details)) {
       await client.query(
         'INSERT INTO entity_details (scope, entity_id, payload) VALUES ($1, $2, $3::jsonb)',
-        [input.generateId, entityId, JSON.stringify(detail)],
+        [input.generateId, entityId, jsonb(detail)],
       )
     }
     for (const [entityId, graph] of Object.entries(input.graphs)) {
       await client.query('INSERT INTO graphs (scope, entity_id, payload) VALUES ($1, $2, $3::jsonb)', [
         input.generateId,
         entityId,
-        JSON.stringify(graph),
+        jsonb(graph),
       ])
     }
     for (const alert of input.alerts) {
       await client.query(
         'INSERT INTO alerts (scope, id, rank, payload) VALUES ($1, $2, $3, $4::jsonb)',
-        [input.generateId, alert.id, alert.rank, JSON.stringify(alert)],
+        [input.generateId, alert.id, alert.rank, jsonb(alert)],
       )
     }
     await client.query(

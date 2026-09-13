@@ -3,7 +3,8 @@ import { Link, useParams } from 'react-router-dom'
 import { getEntity, getGraph } from '@/api/client'
 import { buildEntityNeighborhoodGraph } from '@/api/pipeline'
 import { GraphView } from '@/components/graph/GraphCanvas'
-import { ConfidenceBar, ErrorState, Fact, PageHeader, PageSkeleton, RiskChip } from '@/components/ui/primitives'
+import { RiskEvidencePanel } from '@/components/intel/RiskEvidencePanel'
+import { ConfidenceBar, ErrorState, PageHeader, PageSkeleton, RiskChip } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
 import { useAsync } from '@/hooks/useAsync'
 import { formatBtc, formatTs, formatTsShort, truncateId } from '@/lib/format'
@@ -59,6 +60,14 @@ export function EntityPage() {
         <span className="btn-pill btn-pill-ghost py-1 text-[11px]">{cluster.countryHops.join(' → ')}</span>
       </div>
 
+      <RiskEvidencePanel
+        risk={cluster.risk}
+        confidence={cluster.confidence}
+        summary={cluster.summary}
+        reasons={riskBreakdown}
+        evidence={timeline}
+      />
+
       <section className="mb-4">
         <p className="label mb-2">Graph · related entities and connections</p>
         {graph && graph.nodes.length > 0 ? (
@@ -80,8 +89,8 @@ export function EntityPage() {
         )}
       </section>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <section className="panel p-4">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+        <section className="panel h-fit p-4">
           <h2 className="label mb-2">Wallet address</h2>
           <ul className="space-y-2">
             {members.map((w) => (
@@ -100,7 +109,7 @@ export function EntityPage() {
           </ul>
         </section>
 
-        <section className="panel p-4">
+        <section className="panel h-fit p-4">
           <h2 className="label mb-2">IP address</h2>
           <ul className="space-y-2">
             {sharedIps.map((ip) => (
@@ -118,7 +127,7 @@ export function EntityPage() {
           </ul>
         </section>
 
-        <section className="panel p-4">
+        <section className="panel h-fit p-4">
           <h2 className="label mb-2">Country movement</h2>
           {travelHistory.length === 0 ? (
             <p className="text-sm text-beige-muted">No travel history in this cluster.</p>
@@ -142,7 +151,7 @@ export function EntityPage() {
           )}
         </section>
 
-        <section className="panel p-4">
+        <section className="panel h-fit p-4">
           <h2 className="label mb-2">Linked entities</h2>
           {linkedEntities.length === 0 ? (
             <p className="text-sm text-beige-muted">No shared wallets or IPs with other generated entities.</p>
@@ -160,17 +169,7 @@ export function EntityPage() {
           )}
         </section>
 
-        <section className="panel p-4">
-          <h2 className="label mb-2">Risk breakdown</h2>
-          <dl>
-            {riskBreakdown.map((r) => (
-              <Fact key={r.feature} k={r.feature.replaceAll('_', ' ')} v={`${r.contribution.toFixed(2)} · ${r.text}`} />
-            ))}
-            {riskBreakdown.length === 0 ? <p className="text-sm text-beige-muted">No scored alert.</p> : null}
-          </dl>
-        </section>
-
-        <section className="panel p-4">
+        <section className="panel h-fit p-4">
           <h2 className="label mb-2">Timeline · amounts and labels</h2>
           <ol className="space-y-2">
             {timeline.map((ev) => (

@@ -1,0 +1,78 @@
+{
+  "name": "chainwatch-desktop",
+  "private": true,
+  "version": "1.0.2",
+  "description": "Double-click wrapper for ChainWatch. Does not change the main project.",
+  "main": "main.cjs",
+  "type": "commonjs",
+  "scripts": {
+    "start": "electron .",
+    "prepare:resources": "node scripts/prepare.cjs",
+    "dist:win": "npm run prepare:resources && electron-builder --win",
+    "dist:mac": "npm run prepare:resources && electron-builder --mac",
+    "dist:linux": "npm run prepare:resources && electron-builder --linux"
+  },
+  "dependencies": {
+    "embedded-postgres": "^17.6.0-beta.15",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "electron": "^37.4.0",
+    "electron-builder": "^26.0.12",
+    "esbuild": "^0.25.12"
+  },
+  "build": {
+    "appId": "in.chainwatch.desktop",
+    "productName": "ChainWatch",
+    "copyright": "ChainWatch",
+    "asar": false,
+    "electronLanguages": ["en-US"],
+    "compression": "maximum",
+    "files": [
+      "main.cjs",
+      "preload.cjs"
+    ],
+    "extraResources": [
+      {
+        "from": "pack/api.mjs",
+        "to": "api.mjs"
+      },
+      {
+        "from": "pack/frontend-dist",
+        "to": "frontend-dist"
+      }
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ChainWatch"
+    }
+  },
+  "allowScripts": {
+    "electron@37.10.3": true,
+    "electron-winstaller@5.4.0": true,
+    "@embedded-postgres/windows-x64@17.6.0-beta.15": true
+  }
+}

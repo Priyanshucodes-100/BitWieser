@@ -2,7 +2,7 @@ import type { FastifyError } from 'fastify'
 import cors from '@fastify/cors'
 import multipart from '@fastify/multipart'
 import Fastify from 'fastify'
-import { CORS_ORIGIN, PORT, ensureUploadDir } from './config.js'
+import { CORS_ORIGINS, PORT, ensureUploadDir } from './config.js'
 import { migrate } from './db/migrate.js'
 import { HttpError } from './lib/httpError.js'
 import { generateRoutes } from './routes/generate.js'
@@ -26,7 +26,7 @@ app.setErrorHandler((error: FastifyError, _request, reply) => {
 })
 
 await app.register(cors, {
-  origin: CORS_ORIGIN,
+  origin: CORS_ORIGINS,
   credentials: true,
 })
 

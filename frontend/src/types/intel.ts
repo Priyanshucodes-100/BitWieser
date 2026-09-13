@@ -200,6 +200,7 @@ export interface EntityTableRow {
   countryHops: string[]
   walletCount: number
   ipCount: number
+  txCount: number
 }
 
 export interface AlertFilters {

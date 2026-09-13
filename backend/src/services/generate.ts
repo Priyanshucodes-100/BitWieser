@@ -1,4 +1,4 @@
-import { GENERATE_STEPS, OVERVIEW_GRAPH_ID, runGeneratePipeline } from './pipeline.js'
+import { clipOverviewGraph, GENERATE_STEPS, OVERVIEW_GRAPH_ID, runGeneratePipeline } from './pipeline.js'
 import { alertsFromGenerated } from './alerts.js'
 import {
   createGenerateJob,
@@ -86,7 +86,8 @@ export async function getGeneratePublic(jobId: string): Promise<GenerateJobPubli
   }
   if (job.status === 'done') {
     payload.rows = await listEntityRows(job.id)
-    payload.graph = (await getGraphRow(job.id, OVERVIEW_GRAPH_ID)) ?? {
+    const stored = await getGraphRow(job.id, OVERVIEW_GRAPH_ID)
+    payload.graph = stored ? clipOverviewGraph(stored) : {
       nodes: [],
       edges: [],
       focusNodeIds: [],

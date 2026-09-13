@@ -10,6 +10,7 @@ import {
   highlightPath,
   ingestStatus,
 } from '../seed/demoDataset.js'
+import { jsonb } from '../lib/winText.js'
 import { pool } from './pool.js'
 
 export async function seedDemoIfEmpty(): Promise<void> {
@@ -48,7 +49,7 @@ export async function seedDemo(force: boolean): Promise<void> {
       await client.query('INSERT INTO events (ingest_id, seq, payload) VALUES ($1, $2, $3::jsonb)', [
         DEMO_INGEST_ID,
         i,
-        JSON.stringify(events[i]),
+        jsonb(events[i]),
       ])
     }
 
@@ -57,7 +58,7 @@ export async function seedDemo(force: boolean): Promise<void> {
       if (!detail) continue
       await client.query(
         'INSERT INTO entity_details (scope, entity_id, payload) VALUES ($1, $2, $3::jsonb)',
-        [DEMO_SCOPE, entity.id, JSON.stringify(detail)],
+        [DEMO_SCOPE, entity.id, jsonb(detail)],
       )
     }
 
@@ -70,13 +71,13 @@ export async function seedDemo(force: boolean): Promise<void> {
     await client.query('INSERT INTO graphs (scope, entity_id, payload) VALUES ($1, $2, $3::jsonb)', [
       DEMO_SCOPE,
       OVERVIEW_GRAPH_ID,
-      JSON.stringify(demoGraph),
+      jsonb(demoGraph),
     ])
 
     for (const alert of alerts) {
       await client.query(
         'INSERT INTO alerts (scope, id, rank, payload) VALUES ($1, $2, $3, $4::jsonb)',
-        [DEMO_SCOPE, alert.id, alert.rank, JSON.stringify(alert)],
+        [DEMO_SCOPE, alert.id, alert.rank, jsonb(alert)],
       )
     }
 

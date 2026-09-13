@@ -1,0 +1,16 @@
+---
+description: After finishing work in this repo, commit (no secrets) and push to BitWieser
+alwaysApply: true
+---
+
+# Auto-update GitHub (BitWieser)
+
+When the user finishes a change in this repo, or asks to save/sync/push, update GitHub without being asked again.
+
+1. `git status` and `git diff`. Do not commit `.env`, `uploads/`, `desktop/release/`, `desktop/pack/`, `node_modules`, `dist`, or `*.exe`.
+2. Stage the relevant source files.
+3. Commit with a short message that says why the change exists.
+4. `git push -u origin HEAD` to https://github.com/Priyanshucodes-100/BitWieser.git
+5. Tell the user the commit hash and that `main` is updated.
+
+Do not force-push. Do not amend a commit that is already on GitHub. If push fails on auth, say so and stop.

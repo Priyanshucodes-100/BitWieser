@@ -1,6 +1,8 @@
 node_modules
 dist
 .env
+.env.*
+!.env.example
 *.log
 .DS_Store
 
@@ -8,3 +10,9 @@ dist
 uploads/
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Desktop build artifacts (installer is 100MB+)
+desktop/release/
+desktop/pack/
+*.exe
+*.blockmap

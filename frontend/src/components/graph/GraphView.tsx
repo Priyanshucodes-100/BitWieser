@@ -2,6 +2,8 @@ import cytoscape, { type Core, type EventObject, type StylesheetJson } from 'cyt
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Crosshair, Flag, Fullscreen, Search, ZoomIn, ZoomOut } from 'lucide-react'
 import type { GraphEdge, GraphNode, GraphNodeKind } from '@/types/intel'
+import { capOverviewGraph } from '@/lib/overviewGraph'
+import { NodeMetaModal } from '@/components/graph/NodeMetaModal'
 import { cn } from '@/lib/utils'
 import { useTheme, type ThemeName } from '@/theme/ThemeProvider'
 
@@ -130,6 +132,8 @@ function stylesheet(theme: ThemeName, alwaysLabel = false) {
         'source-arrow-shape': 'none',
         label: '',
         opacity: 1,
+        'overlay-padding': 12,
+        'overlay-opacity': 0,
       },
     },
     {
@@ -143,8 +147,18 @@ function stylesheet(theme: ThemeName, alwaysLabel = false) {
       },
     },
     {
+      selector: 'edge.edge-active',
+      style: {
+        width: 2.6,
+        'line-color': C.ink,
+        'line-style': 'solid',
+        opacity: 1,
+        'z-index': 20,
+      },
+    },
+    {
       selector: 'edge.dim',
-      style: { opacity: theme === 'light' ? 0.72 : 0.45 },
+      style: { opacity: theme === 'light' ? 0.22 : 0.2 },
     },
   ] as unknown as StylesheetJson
 }
@@ -166,9 +180,18 @@ export interface GraphViewProps {
   alwaysLabel?: boolean
 }
 
+const MAX_DRAW_NODES = 140
+
+function drawableGraph(nodes: GraphNode[], edges: GraphEdge[]): { nodes: GraphNode[]; edges: GraphEdge[] } {
+  if (nodes.length <= MAX_DRAW_NODES) return { nodes, edges }
+  const capped = capOverviewGraph({ nodes, edges, focusNodeIds: [], highlightPath: [] })
+  if (capped.nodes.length > 0) return { nodes: capped.nodes, edges: capped.edges }
+  return { nodes: nodes.slice(0, MAX_DRAW_NODES), edges: edges.filter((e) => nodes.slice(0, MAX_DRAW_NODES).some((n) => n.id === e.source) && nodes.slice(0, MAX_DRAW_NODES).some((n) => n.id === e.target)) }
+}
+
 export function GraphView({
-  nodes,
-  edges,
+  nodes: rawNodes,
+  edges: rawEdges,
   focusNodeIds = [],
   highlightPath = [],
   onSelect,
@@ -176,11 +199,13 @@ export function GraphView({
   autoHighlightPath = true,
   alwaysLabel = false,
 }: GraphViewProps) {
+  const { nodes, edges } = useMemo(() => drawableGraph(rawNodes, rawEdges), [rawNodes, rawEdges])
   const { theme } = useTheme()
   const palette = graphPalette(theme)
   const containerRef = useRef<HTMLDivElement>(null)
   const cyRef = useRef<Core | null>(null)
   const selectedIdRef = useRef<string | null>(null)
+  const selectedEdgeIdRef = useRef<string | null>(null)
   const lookup = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes])
   const [filters, setFilters] = useState<GraphFilters>({ wallet: true, ip: true, tx: true })
   const [flaggedOnly, setFlaggedOnly] = useState(false)
@@ -189,8 +214,12 @@ export function GraphView({
   const [tip, setTip] = useState<{ x: number; y: number; line: string } | null>(null)
   const [mapCursor, setMapCursor] = useState<{ x: number; y: number; down: boolean } | null>(null)
   const [drawFailed, setDrawFailed] = useState(false)
+  const [inspected, setInspected] = useState<GraphNode | null>(null)
+  const inspectRef = useRef<(node: GraphNode | null) => void>(() => {})
+  inspectRef.current = setInspected
 
-  const elementsKey = `${theme}:${alwaysLabel}:${nodes.map((n) => n.id).join('|')}:${edges.length}`
+  const labelAll = alwaysLabel && nodes.length <= 90
+  const elementsKey = `${theme}:${labelAll}:${nodes.length}:${edges.length}:${nodes[0]?.id ?? ''}:${nodes[nodes.length - 1]?.id ?? ''}`
 
   useEffect(() => {
     const host = containerRef.current
@@ -248,9 +277,9 @@ export function GraphView({
         cy = cytoscape({
           container: containerRef.current,
           elements: [...cyNodes, ...cyEdges],
-          style: stylesheet(theme, alwaysLabel),
+          style: stylesheet(theme, labelAll),
           layout: { name: 'preset' },
-          minZoom: 0.15,
+          minZoom: 0.05,
           maxZoom: 2.8,
           wheelSensitivity: 0.2,
           textureOnViewport: false,
@@ -273,20 +302,40 @@ export function GraphView({
 
       const restyle = () => {
         if (!cy) return
-        applyGraphState(cy, highlightPath.map((id) => idMap.get(id) ?? id), pathOn, selectedIdRef.current, alwaysLabel)
+        applyGraphState(
+          cy,
+          highlightPath.map((id) => idMap.get(id) ?? id),
+          pathOn,
+          selectedIdRef.current,
+          labelAll,
+          selectedEdgeIdRef.current,
+        )
       }
 
       const onTapNode = (evt: EventObject) => {
         const orig = String(evt.target.data('origId') ?? evt.target.id())
         selectedIdRef.current = String(evt.target.id())
+        selectedEdgeIdRef.current = null
         restyle()
-        onSelect(lookup.get(orig) ?? null)
+        const picked = lookup.get(orig) ?? null
+        onSelect(picked)
+        inspectRef.current(picked)
+      }
+      const onTapEdge = (evt: EventObject) => {
+        const id = String(evt.target.id())
+        selectedIdRef.current = null
+        selectedEdgeIdRef.current = selectedEdgeIdRef.current === id ? null : id
+        restyle()
+        onSelect(null)
+        inspectRef.current(null)
       }
       const onTapBg = (evt: EventObject) => {
         if (evt.target !== cy) return
         selectedIdRef.current = null
+        selectedEdgeIdRef.current = null
         restyle()
         onSelect(null)
+        inspectRef.current(null)
       }
       const onOver = (evt: EventObject) => {
         const orig = String(evt.target.data('origId') ?? evt.target.id())
@@ -295,53 +344,70 @@ export function GraphView({
         const pos = evt.renderedPosition
         setTip({ x: pos.x, y: pos.y, line: `${node.label} · ${node.kind}` })
       }
+      const onOverEdge = (evt: EventObject) => {
+        const label = String(evt.target.data('label') ?? 'link')
+        const pos = evt.renderedPosition
+        setTip({ x: pos.x, y: pos.y, line: label })
+      }
 
       cy.on('tap', 'node', onTapNode)
+      cy.on('tap', 'edge', onTapEdge)
       cy.on('tap', onTapBg)
       cy.on('mouseover', 'node', onOver)
-      cy.on('mouseout', 'node', () => setTip(null))
+      cy.on('mouseover', 'edge', onOverEdge)
+      cy.on('mouseout', 'node, edge', () => setTip(null))
 
-      const layoutOpts = alwaysLabel
-        ? {
-            name: 'circle' as const,
-            animate: false,
-            fit: true,
-            padding: 72,
-            avoidOverlap: true,
-            spacingFactor: Math.max(1.4, Math.min(2.2, 1.2 + nodes.length * 0.04)),
-          }
-        : {
-            name: 'concentric' as const,
-            animate: false,
-            fit: true,
-            padding: 56,
-            minNodeSpacing: 42,
-            avoidOverlap: true,
-            concentric: (n: { degree: () => number }) => n.degree(),
-            levelWidth: () => 1,
-            startAngle: (3 * Math.PI) / 2,
-            sweep: Math.PI * 2,
-            clockwise: true,
-            equidistant: false,
-          }
-      cy.layout(layoutOpts).run()
+      const layoutOpts =
+        labelAll && nodes.length <= 40
+          ? {
+              name: 'circle' as const,
+              animate: false,
+              fit: true,
+              padding: 48,
+              avoidOverlap: true,
+              spacingFactor: 1.6,
+            }
+          : {
+              name: 'concentric' as const,
+              animate: false,
+              fit: true,
+              padding: 40,
+              minNodeSpacing: 28,
+              avoidOverlap: true,
+              concentric: (n: { degree: () => number }) => n.degree(),
+              levelWidth: () => 1,
+              startAngle: (3 * Math.PI) / 2,
+              sweep: Math.PI * 2,
+              clockwise: true,
+              equidistant: false,
+            }
+      try {
+        cy.layout(layoutOpts).run()
+      } catch {
+        try {
+          cy.layout({ name: 'grid', animate: false, fit: true, padding: 40, avoidOverlap: true }).run()
+        } catch {
+          setDrawFailed(true)
+        }
+      }
 
       const afterLayout = () => {
         if (!cy) return
         cy.resize()
-        if (!alwaysLabel) {
+        if (!labelAll) {
           cy.nodes().forEach((n) => {
             const size = 6 + Math.min(n.degree(), 10) * 1.15
             n.style({ width: size, height: size })
           })
         }
-        if (cy.nodes().nonempty()) cy.fit(cy.nodes(), alwaysLabel ? 64 : 52)
+        if (cy.nodes().nonempty()) cy.fit(cy.nodes(), labelAll ? 64 : 52)
         applyGraphState(
           cy,
           highlightPath.map((id) => idMap.get(id) ?? id),
           pathOn,
           selectedIdRef.current,
-          alwaysLabel,
+          labelAll,
+          selectedEdgeIdRef.current,
         )
       }
       cy.one('layoutstop', afterLayout)
@@ -383,8 +449,8 @@ export function GraphView({
   useEffect(() => {
     const cy = cyRef.current
     if (!cy) return
-    applyGraphState(cy, highlightPath, pathOn, selectedIdRef.current, alwaysLabel)
-  }, [pathOn, highlightPath, elementsKey])
+    applyGraphState(cy, highlightPath, pathOn, selectedIdRef.current, labelAll, selectedEdgeIdRef.current)
+  }, [pathOn, highlightPath, elementsKey, labelAll])
 
   const runSearch = () => {
     const cy = cyRef.current
@@ -400,10 +466,13 @@ export function GraphView({
       const node = hit.first()
       const id = node.id()
       selectedIdRef.current = id
-      applyGraphState(cy, highlightPath, pathOn, id, alwaysLabel)
+      selectedEdgeIdRef.current = null
+      applyGraphState(cy, highlightPath, pathOn, id, labelAll, null)
       cy.animate({ fit: { eles: node.neighborhood().union(node), padding: 80 }, duration: 250 })
       node.select()
-      onSelect(lookup.get(String(node.data('origId') ?? id)) ?? null)
+      const picked = lookup.get(String(node.data('origId') ?? id)) ?? null
+      onSelect(picked)
+      setInspected(picked)
     }
   }
 
@@ -506,7 +575,10 @@ export function GraphView({
                   <button
                     type="button"
                     className="btn-pill btn-pill-ghost text-left"
-                    onClick={() => onSelect(n)}
+                    onClick={() => {
+                      onSelect(n)
+                      setInspected(n)
+                    }}
                   >
                     {n.label} · {n.kind}
                   </button>
@@ -542,6 +614,7 @@ export function GraphView({
         ) : null}
         <GraphLegend theme={theme} />
       </div>
+      {inspected ? <NodeMetaModal node={inspected} onClose={() => setInspected(null)} /> : null}
     </div>
   )
 }
@@ -629,8 +702,17 @@ function applyGraphState(
   pathOn: boolean,
   selectedId: string | null,
   alwaysLabel = false,
+  selectedEdgeId: string | null = null,
 ) {
-  cy.elements().removeClass('dim path-hl hl active')
+  cy.elements().removeClass('dim path-hl hl active edge-active')
+  if (selectedEdgeId) {
+    const edge = cy.getElementById(selectedEdgeId)
+    if (edge.empty()) return
+    cy.elements().addClass('dim')
+    edge.removeClass('dim').addClass('edge-active')
+    edge.connectedNodes().removeClass('dim').addClass('hl')
+    return
+  }
   if (selectedId) {
     const node = cy.getElementById(selectedId)
     if (node.empty()) return

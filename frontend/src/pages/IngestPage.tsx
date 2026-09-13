@@ -7,6 +7,7 @@ import { EntitiesTable, filterEntityRows, sortEntityRows, type EntitySortKey } f
 import { EmptyState, ErrorState, PageHeader } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
 import { formatTs } from '@/lib/format'
+import { visibleIngestGraph } from '@/lib/overviewGraph'
 import { cn } from '@/lib/utils'
 import type { AlertType, EntityTableRow, GraphPayload, RiskLevel } from '@/types/intel'
 
@@ -136,6 +137,8 @@ export function IngestPage() {
     }
     return ['ALL', ...[...set].sort()]
   }, [results])
+
+  const visibleGraph = useMemo(() => visibleIngestGraph(overviewGraph, results), [overviewGraph, results])
 
   const visibleRows = useMemo(() => {
     if (!results) return []
@@ -272,20 +275,32 @@ export function IngestPage() {
 
       {results ? (
         <section ref={resultsRef} className="mt-6">
-          <PageHeader kicker="Results" title="Entities" description={`${visibleRows.length}/${results.length}`} />
-          {overviewGraph && overviewGraph.nodes.length > 0 ? (
+          <PageHeader
+            kicker="Results"
+            title="Entities"
+            description={`${visibleRows.length} clusters · ${results.reduce((n, r) => n + (r.txCount || 0), 0)} txs`}
+          />
+          {visibleGraph ? (
             <div className="mb-4">
-              <p className="label mb-2">Graph</p>
+              <p className="label mb-2">
+                Graph · top {visibleGraph.nodes.filter((n) => n.kind === 'entity').length} clusters from this file
+              </p>
+              <p className="mb-3 text-sm text-beige-muted">
+                Full file is {results.length} clusters. This canvas shows the highest-risk slice so it can draw. Open a
+                row for that cluster's full graph.
+              </p>
               <GraphView
-                nodes={overviewGraph.nodes}
-                edges={overviewGraph.edges}
-                focusNodeIds={overviewGraph.focusNodeIds}
-                highlightPath={overviewGraph.highlightPath}
+                nodes={visibleGraph.nodes}
+                edges={visibleGraph.edges}
+                focusNodeIds={visibleGraph.focusNodeIds}
+                highlightPath={[]}
                 onSelect={selectNode}
                 autoHighlightPath={false}
                 alwaysLabel
               />
             </div>
+          ) : results.length > 0 ? (
+            <p className="mb-4 text-sm text-beige-muted">Open a row for that cluster's graph.</p>
           ) : null}
           <div className="mb-4 flex flex-wrap items-center gap-2">
             {RISK_OPTS.map((o) => (

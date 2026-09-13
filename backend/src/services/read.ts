@@ -20,7 +20,7 @@ import {
   neighborhoodIds,
   searchIndex as demoSearch,
 } from '../seed/demoDataset.js'
-import { OVERVIEW_GRAPH_ID, buildEntityNeighborhoodGraph } from './pipeline.js'
+import { OVERVIEW_GRAPH_ID, buildEntityNeighborhoodGraph, clipOverviewGraph } from './pipeline.js'
 import { filterAndSortAlerts } from './alerts.js'
 import type {
   Alert,
@@ -111,7 +111,7 @@ export async function readGraph(entityId?: string): Promise<GraphPayload> {
 
   if (generateId) {
     const overview = await getGraphRow(generateId, OVERVIEW_GRAPH_ID)
-    if (overview?.nodes.length) return overview
+    if (overview?.nodes.length) return clipOverviewGraph(overview)
   }
 
   return {

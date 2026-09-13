@@ -40,6 +40,7 @@ export function EntitiesTable({ rows, sortBy, sortDir, onSort }: Props) {
                 </button>
               </th>
             ))}
+            <th className="px-3 py-2 font-semibold">Txs</th>
             <th className="px-3 py-2 font-semibold">Wallets</th>
             <th className="px-3 py-2 font-semibold">Country movement</th>
           </tr>
@@ -65,6 +66,7 @@ export function EntitiesTable({ rows, sortBy, sortDir, onSort }: Props) {
               </td>
               <td className="px-3 py-2.5 tabular">{formatBtc(row.amountBtc)}</td>
               <td className="px-3 py-2.5 tabular text-beige-dim">{formatTsShort(row.lastActivity)}</td>
+              <td className="px-3 py-2.5 tabular">{row.txCount}</td>
               <td className="px-3 py-2.5 tabular">{row.walletCount}</td>
               <td className="px-3 py-2.5">
                 <span className="tabular text-xs text-beige-dim">

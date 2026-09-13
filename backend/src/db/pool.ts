@@ -8,6 +8,10 @@ export const pool = new Pool({
   max: 10,
 })
 
+pool.on('connect', (client) => {
+  void client.query("SET client_encoding TO 'UTF8'")
+})
+
 export async function pingDb(): Promise<boolean> {
   const client = await pool.connect()
   try {

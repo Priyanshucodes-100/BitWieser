@@ -6,6 +6,7 @@ import { InspectorPanel } from '@/components/graph/InspectorPanel'
 import { ErrorState, PageHeader, PageSkeleton } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
 import { useAsync } from '@/hooks/useAsync'
+import { capOverviewGraph } from '@/lib/overviewGraph'
 
 export function GraphPage() {
   const [params] = useSearchParams()
@@ -14,27 +15,27 @@ export function GraphPage() {
   const { selectedNode, selectNode } = useAppState()
 
   const generatedCluster = Boolean(entityId && entityId !== 'entity-17')
-  const focus = useMemo(() => {
-    if (state.status !== 'ready') return []
-    if (entityId) return state.data.focusNodeIds
-    return state.data.highlightPath
+  const graph = useMemo(() => {
+    if (state.status !== 'ready') return null
+    return entityId ? state.data : capOverviewGraph(state.data)
   }, [state, entityId])
+  const focus = graph?.focusNodeIds ?? []
 
   return (
     <div>
       <PageHeader kicker="Graph" title="Link analysis" description="Click a node to inspect." />
       {state.status === 'loading' ? <PageSkeleton /> : null}
       {state.status === 'error' ? <ErrorState message={state.error.message} onRetry={state.reload} /> : null}
-      {state.status === 'ready' ? (
+      {state.status === 'ready' && graph ? (
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_280px]">
           <GraphView
-            nodes={state.data.nodes}
-            edges={state.data.edges}
+            nodes={graph.nodes}
+            edges={graph.edges}
             focusNodeIds={focus}
-            highlightPath={state.data.highlightPath}
+            highlightPath={graph.highlightPath}
             onSelect={selectNode}
-            autoHighlightPath={!generatedCluster}
-            alwaysLabel={generatedCluster}
+            autoHighlightPath={Boolean(entityId) && !generatedCluster}
+            alwaysLabel={generatedCluster || !entityId}
           />
           <InspectorPanel node={selectedNode} />
         </div>
