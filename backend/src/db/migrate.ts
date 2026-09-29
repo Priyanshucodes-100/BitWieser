@@ -20,7 +20,7 @@ export async function migrate(): Promise<void> {
     await pool.query(SCHEMA_SQL)
   } catch (err) {
     throw new Error(
-      `Cannot reach PostgreSQL (${dbErrorDetail(err)}). Start it with docker compose up -d db, or install Postgres and set DATABASE_URL.`,
+      `Cannot reach PostgreSQL (${dbErrorDetail(err)}). From the repo root run npm run live (no Docker), or start Postgres and set DATABASE_URL.`,
       { cause: err },
     )
   }

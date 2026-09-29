@@ -1,0 +1,22 @@
+{
+  "name": "chainwatch-root",
+  "private": true,
+  "version": "1.0.2",
+  "description": "No-Docker live console: npm run live",
+  "scripts": {
+    "live": "node scripts/live.cjs",
+    "live:rebuild": "node scripts/live.cjs --build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "allowScripts": {
+    "@embedded-postgres/windows-x64@17.6.0-beta.15": true,
+    "@embedded-postgres/darwin-arm64@17.6.0-beta.15": true,
+    "@embedded-postgres/linux-x64@17.6.0-beta.15": true
+  },
+  "dependencies": {
+    "embedded-postgres": "^17.6.0-beta.15",
+    "pg": "^8.16.3"
+  }
+}

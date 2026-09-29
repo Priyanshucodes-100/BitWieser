@@ -16,3 +16,6 @@ desktop/release/
 desktop/pack/
 *.exe
 *.blockmap
+
+# Bundled Postgres for npm run live (no Docker)
+.pgdata-live/

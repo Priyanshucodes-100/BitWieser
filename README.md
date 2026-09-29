@@ -8,25 +8,31 @@ IP is first-seen peer, not identity. No live intercept, no seized data, no cloud
 
 Load a capture (CSV / JSON / XML) or the demo dataset → **Generate data** → ranked entities with risk, filters, entity detail, and graphs.
 
+## Live (browser URL, no Docker)
+
+Need **Node.js 20+** only. Visitors open the URL in a browser. They do not install Docker or Node.
+
+On the machine that will serve it:
+
+```bash
+cd <this-repo>
+npm install
+npm run live
+```
+
+Open `http://127.0.0.1:3001`. First run prepares a local database and builds the UI (a few minutes). After that, `npm run live` is enough.
+
+If that PC is on a network, others can use `http://<that-pc-ip>:3001` while this command is running. Stop it with Ctrl+C.
+
+Cloud hosts (Render, Railway, a VPS) set `DATABASE_URL` and `PORT`; `npm run live` then uses that database instead of the bundled one.
+
+Docker is optional: `docker compose -f docker-compose.yml -f docker-compose.live.yml up -d --build`
+
 ## Offline (what you already use)
 
 Keep using the **desktop installer** or local `npm run dev`. That path does not talk to the hosted site. Files and the database stay on your laptop.
 
-## Live (browser URL)
-
-Same product, reachable on a URL. Still file-in / ranked-leads-out. No live Bitcoin node. Anyone with the URL can open the console unless you put a password in front of it.
-
-On this machine (Docker):
-
-```bash
-docker compose -f docker-compose.yml -f docker-compose.live.yml up -d --build
-```
-
-Open `http://localhost:3001`.
-
-On a VPS, copy the repo, set `PUBLIC_ORIGIN=https://your-domain` in the environment, run the same compose command, and open port 3001 (or put Nginx/Caddy in front).
-
-Local Vite on 5173 is unchanged: `docker compose up -d db` then backend + frontend as below.
+Local Vite on 5173 is unchanged: backend + frontend as below. Postgres is optional if you use `npm run live`.
 
 
 ### 1. Postgres
