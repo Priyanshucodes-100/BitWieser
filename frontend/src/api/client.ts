@@ -12,7 +12,11 @@ import type {
   SearchHit,
 } from '@/types/intel'
 
-const API_URL = (import.meta.env.VITE_API_URL ?? 'http://localhost:3001').replace(/\/$/, '')
+const rawApi = import.meta.env.VITE_API_URL
+const API_URL =
+  rawApi === '' || rawApi === '/'
+    ? ''
+    : String(rawApi ?? 'http://localhost:3001').replace(/\/$/, '')
 
 interface GenerateJobPayload {
   jobId: string

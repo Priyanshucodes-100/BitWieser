@@ -8,9 +8,26 @@ IP is first-seen peer, not identity. No live intercept, no seized data, no cloud
 
 Load a capture (CSV / JSON / XML) or the demo dataset → **Generate data** → ranked entities with risk, filters, entity detail, and graphs.
 
-## Run
+## Offline (what you already use)
 
-You need **Node.js 20+** and **PostgreSQL 16**. Docker is optional.
+Keep using the **desktop installer** or local `npm run dev`. That path does not talk to the hosted site. Files and the database stay on your laptop.
+
+## Live (browser URL)
+
+Same product, reachable on a URL. Still file-in / ranked-leads-out. No live Bitcoin node. Anyone with the URL can open the console unless you put a password in front of it.
+
+On this machine (Docker):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.live.yml up -d --build
+```
+
+Open `http://localhost:3001`.
+
+On a VPS, copy the repo, set `PUBLIC_ORIGIN=https://your-domain` in the environment, run the same compose command, and open port 3001 (or put Nginx/Caddy in front).
+
+Local Vite on 5173 is unchanged: `docker compose up -d db` then backend + frontend as below.
+
 
 ### 1. Postgres
 
@@ -64,6 +81,7 @@ npm run dev
 | `backend/` | Fastify API + Postgres |
 | `backend/fixtures/` | Sample CSV / XML captures |
 | `docker-compose.yml` | Local Postgres 16 |
+| `docker-compose.live.yml` | Hosted UI + API (does not replace the desktop app) |
 
 ## Env
 
@@ -73,14 +91,16 @@ npm run dev
 | --- | --- |
 | `PORT` | `3001` |
 | `DATABASE_URL` | `postgres://chainwatch:chainwatch@localhost:5432/chainwatch` |
+| `HOST` | `0.0.0.0` |
 | `CORS_ORIGIN` | `http://localhost:5173` |
 | `UPLOAD_DIR` | `uploads` |
+| `FRONTEND_DIST` | empty (set to frontend `dist` to serve UI on the API port) |
 
 **Frontend** (`frontend/.env`)
 
 | Variable | Default |
 | --- | --- |
-| `VITE_API_URL` | `http://localhost:3001` |
+| `VITE_API_URL` | `http://localhost:3001` (empty = same origin, for live Docker) |
 
 ## Disclaimers
 
