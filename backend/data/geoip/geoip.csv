@@ -1,0 +1,26 @@
+# Offline GeoIP table used when the capture omits geo_country / asn.
+# Replace this file with MaxMind GeoLite2 CSVs in this same folder (no code change):
+#   GeoLite2-Country-Blocks-IPv4.csv
+#   GeoLite2-Country-Locations-en.csv
+# Download: https://dev.maxmind.com/geoip/geolite2-free-geolocation-data
+network,country,asn
+103.21.0.0/16,IN,AS24560
+180.0.0.0/8,NL,AS49981
+185.0.0.0/8,NL,AS49981
+90.0.0.0/8,DE,AS24940
+91.0.0.0/8,DE,AS24940
+92.0.0.0/8,DE,AS24940
+93.0.0.0/8,DE,AS24940
+94.0.0.0/8,DE,AS24940
+80.0.0.0/8,DE,AS24940
+45.0.0.0/8,SG,AS20473
+46.0.0.0/8,SG,AS20473
+47.0.0.0/8,SG,AS20473
+48.0.0.0/8,SG,AS20473
+49.0.0.0/8,SG,AS20473
+51.0.0.0/8,GB,AS16276
+52.0.0.0/8,GB,AS16276
+104.0.0.0/8,US,AS13335
+105.0.0.0/8,US,AS13335
+106.0.0.0/8,US,AS13335
+107.0.0.0/8,US,AS13335

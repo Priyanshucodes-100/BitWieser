@@ -1,4 +1,7 @@
 import { toRiskLevel } from '../lib/risk.js'
+import { lookupGeo } from '../lib/geoip.js'
+import { isolationScores } from '../ml/isolationForest.js'
+import { featureVector, patternExtras, topFeatureLabels } from '../ml/patterns.js'
 import type {
   AlertType,
   EntityDetail,
@@ -48,7 +51,9 @@ function countryCode(raw: string): string {
 function enrichCountry(ip: string, given: string): string {
   const coded = countryCode(given)
   if (coded) return coded
-  const first = Number((ip.split('.')[0] ?? '0'))
+  const fromDb = lookupGeo(ip)?.country
+  if (fromDb) return fromDb
+  const first = Number(ip.split('.')[0] ?? '0')
   if (first >= 100 && first < 110) return 'IN'
   if (first >= 180 && first < 190) return 'NL'
   if (first >= 90 && first < 95) return 'DE'
@@ -61,7 +66,9 @@ function enrichCountry(ip: string, given: string): string {
 
 function enrichAsn(ip: string, given: string): string {
   if (given.trim()) return given.trim()
-  const first = Number((ip.split('.')[0] ?? '0'))
+  const fromDb = lookupGeo(ip)?.asn
+  if (fromDb) return fromDb
+  const first = Number(ip.split('.')[0] ?? '0')
   if (first >= 100 && first < 110) return 'AS24560'
   if (first >= 180 && first < 190) return 'AS49981'
   if (first >= 90 && first < 95) return 'AS24940'
@@ -540,6 +547,8 @@ export function runGeneratePipeline(rawEvents: Event[]): GenerateBundle {
   const rows: EntityTableRow[] = []
   const details: Record<string, EntityDetail> = {}
   const graphs: Record<string, GraphPayload> = {}
+  const vectors: number[][] = []
+  const vectorIds: string[] = []
   const drafts: Array<{
     id: string
     name: string
@@ -551,7 +560,12 @@ export function runGeneratePipeline(rawEvents: Event[]): GenerateBundle {
   clusters.forEach(([ip, group], idx) => {
     const firstRow = group[0]
     if (!firstRow) return
-    const { confidence, type, reasons } = scoreCluster(group)
+    const scored = scoreCluster(group)
+    const extra = patternExtras(group)
+    let confidence = Math.min(0.97, scored.confidence + extra.score)
+    let type = scored.type
+    if (type === 'anomaly' && extra.typeHint) type = extra.typeHint
+    const reasons = [...scored.reasons, ...extra.reasons]
     const risk = toRiskLevel(confidence)
     const addrs = [...new Set(group.flatMap((e) => [...e.inputAddresses, ...e.outputAddresses]))]
     const hops = [...new Set(group.map((e) => e.geoCountry).filter((c) => c && c !== 'XX'))]
@@ -604,6 +618,8 @@ export function runGeneratePipeline(rawEvents: Event[]): GenerateBundle {
       ips: new Set(ipList.map((i) => i.ip)),
       addrs: new Set(addrs),
     })
+    vectors.push(featureVector(group))
+    vectorIds.push(entityId)
 
     rows.push({
       id: entityId,
@@ -656,6 +672,54 @@ export function runGeneratePipeline(rawEvents: Event[]): GenerateBundle {
     }
     const detail = details[draft.id]
     if (detail) detail.linkedEntities = linked.slice(0, 8)
+  }
+
+  const anomalies = isolationScores(vectors)
+  anomalies.forEach((anomaly, index) => {
+    const id = vectorIds[index]
+    const detail = id ? details[id] : undefined
+    const row = rows.find((item) => item.id === id)
+    const vector = vectors[index]
+    if (!detail || !row || !vector || anomaly < 0.58) return
+    const bump = Math.min(0.24, Math.max(0.08, (anomaly - 0.5) * 0.5))
+    const labels = topFeatureLabels(vector) || 'cluster structure'
+    detail.riskBreakdown.push({
+      feature: 'isolation_forest',
+      contribution: Number(bump.toFixed(2)),
+      text: `Isolation Forest anomaly ${anomaly.toFixed(2)} versus this file · ${labels}`,
+    })
+    detail.cluster.confidence = Math.min(0.97, detail.cluster.confidence + bump)
+    row.confidence = detail.cluster.confidence
+    const risk = toRiskLevel(detail.cluster.confidence)
+    detail.cluster.risk = risk
+    row.risk = risk
+  })
+
+  for (const detail of Object.values(details)) {
+    for (const link of detail.linkedEntities) {
+      const other = details[link.id]
+      if (other) link.risk = other.cluster.risk
+    }
+    if (detail.cluster.risk === 'HIGH') continue
+    const seed = detail.linkedEntities.find((link) => link.risk === 'HIGH')
+    if (!seed) continue
+    const bump = 0.12
+    detail.riskBreakdown.push({
+      feature: 'risk_propagation',
+      contribution: bump,
+      text: `Risk propagated one hop from seed cluster ${seed.name}`,
+    })
+    detail.cluster.confidence = Math.min(0.97, detail.cluster.confidence + bump)
+    const row = rows.find((item) => item.id === detail.cluster.id)
+    if (row) {
+      row.confidence = detail.cluster.confidence
+      row.risk = toRiskLevel(detail.cluster.confidence)
+      detail.cluster.risk = row.risk
+    }
+  }
+
+  for (const detail of Object.values(details)) {
+    for (const wallet of detail.members) wallet.risk = detail.cluster.risk
   }
 
   rows.sort((a, b) => b.confidence - a.confidence || b.amountBtc - a.amountBtc)

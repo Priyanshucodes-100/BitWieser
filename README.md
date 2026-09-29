@@ -8,6 +8,8 @@ IP is first-seen peer, not identity. No live intercept, no seized data, no cloud
 
 Load a capture (CSV / JSON / XML) or the demo dataset → **Generate data** → ranked entities with risk, filters, entity detail, and graphs.
 
+Generate also runs an offline Isolation Forest on this file, peel-chain and CoinJoin-like checks, common-input ownership, and one-hop risk propagation. Country and ASN come from `backend/data/geoip/geoip.csv` when the capture omits them (drop GeoLite2 CSVs in that folder to replace the table). Write-up: `docs/approach.md`.
+
 ## Live (browser URL, no Docker)
 
 Need **Node.js 20+** only. Visitors open the URL in a browser. They do not install Docker or Node.
