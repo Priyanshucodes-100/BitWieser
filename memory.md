@@ -29,4 +29,5 @@ Decisions and facts that should survive a new chat. Add a dated line when someth
 ## 2026-09-30
 
 - Added the six guide files: `PRD.md`, `architecture.md`, `rules.md`, `design.md`, `tasks.md`, `memory.md`.
+- `architecture.md` describes the three run modes, the page-to-API map, the generate pipeline, and the Postgres tables.
 - Country dropdown and hop paths show English names (India, Netherlands, and so on).
