@@ -1,0 +1,170 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "How ChainWatch works",
+    "locale": "en",
+    "output": ".archify/architecture-plain-20260930-040800/runtime.html",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/Priyanshucodes-100/BitWieser.git",
+      "provider": "github",
+      "link_mode": "web",
+      "revision": "177ff325e4b86bd92c2a37f7d682ba7302f950bd"
+    }
+  },
+  "components": [
+    {
+      "id": "person",
+      "type": "external",
+      "label": "Person",
+      "sublabel": "uses a browser",
+      "pos": [28, 300],
+      "size": [150, 76],
+      "sources": [{ "path": "frontend/src/App.tsx", "line": 21, "end_line": 28, "label": "Console routes" }]
+    },
+    {
+      "id": "screen",
+      "type": "frontend",
+      "label": "App screen",
+      "sublabel": "pages you click",
+      "pos": [268, 300],
+      "size": [160, 76],
+      "sources": [
+        { "path": "frontend/src/App.tsx", "line": 21, "end_line": 28, "label": "Pages" },
+        { "path": "frontend/src/api/client.ts", "line": 15, "end_line": 19, "label": "API base URL" }
+      ]
+    },
+    {
+      "id": "server",
+      "type": "backend",
+      "label": "Local server",
+      "sublabel": "answers the app",
+      "pos": [520, 300],
+      "size": [160, 76],
+      "sources": [
+        { "path": "backend/src/index.ts", "line": 46, "end_line": 49, "label": "Route register" },
+        { "path": "backend/src/index.ts", "line": 71, "end_line": 71, "label": "Listen" },
+        { "path": "backend/src/config.ts", "line": 11, "end_line": 15, "label": "Port and CORS" }
+      ]
+    },
+    {
+      "id": "loader",
+      "type": "backend",
+      "label": "File loader",
+      "sublabel": "takes the upload",
+      "pos": [772, 300],
+      "size": [160, 76],
+      "sources": [{ "path": "backend/src/routes/ingest.ts", "line": 5, "end_line": 15, "label": "POST /ingest" }]
+    },
+    {
+      "id": "scorer",
+      "type": "backend",
+      "label": "Grouping step",
+      "sublabel": "same first-seen IP",
+      "pos": [1024, 300],
+      "size": [170, 76],
+      "sources": [
+        { "path": "backend/src/routes/generate.ts", "line": 7, "end_line": 15, "label": "POST /generate" },
+        { "path": "backend/src/services/pipeline.ts", "line": 526, "end_line": 537, "label": "Enrich and cluster" }
+      ]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "Saved results",
+      "sublabel": "database",
+      "pos": [1286, 300],
+      "size": [156, 76],
+      "sources": [
+        { "path": "backend/src/db/pool.ts", "line": 6, "end_line": 8, "label": "Pool" },
+        { "path": "backend/src/db/schema.ts", "line": 15, "end_line": 19, "label": "events table" }
+      ]
+    },
+    {
+      "id": "checker",
+      "type": "backend",
+      "label": "Unusual check",
+      "sublabel": "this file only",
+      "pos": [1035, 64],
+      "size": [148, 70],
+      "sources": [
+        { "path": "backend/src/ml/isolationForest.ts", "line": 59, "end_line": 79, "label": "Score vectors" },
+        { "path": "backend/src/services/pipeline.ts", "line": 677, "end_line": 677, "label": "Called after rules" }
+      ]
+    },
+    {
+      "id": "file",
+      "type": "external",
+      "label": "Your data file",
+      "sublabel": "CSV, JSON, or XML",
+      "pos": [777, 500],
+      "size": [150, 70],
+      "sources": [{ "path": "backend/src/routes/ingest.ts", "line": 6, "end_line": 13, "label": "Multipart upload" }]
+    },
+    {
+      "id": "places",
+      "type": "external",
+      "label": "Country list",
+      "sublabel": "saved on this PC",
+      "pos": [1034, 500],
+      "size": [150, 70],
+      "sources": [{ "path": "backend/src/lib/geoip.ts", "line": 97, "end_line": 106, "label": "Local lookup" }]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "On this computer",
+      "wraps": ["screen", "server", "loader", "scorer", "checker", "store", "places"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Program that handles the file",
+      "wraps": ["server", "loader", "scorer", "checker"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Where results are kept",
+      "wraps": ["store"]
+    }
+  ],
+  "connections": [
+    { "id": "opens", "from": "person", "to": "screen", "label": "opens", "variant": "emphasis" },
+    { "id": "asks", "from": "screen", "to": "server", "label": "asks", "variant": "emphasis" },
+    { "id": "load", "from": "server", "to": "loader", "label": "load", "variant": "emphasis" },
+    { "id": "group", "from": "loader", "to": "scorer", "label": "group", "variant": "emphasis" },
+    { "id": "save", "from": "scorer", "to": "store", "label": "save", "variant": "emphasis" },
+    { "id": "upload", "from": "file", "to": "loader", "label": "upload", "variant": "dashed", "fromSide": "top", "toSide": "bottom" },
+    { "id": "country-lookup", "from": "scorer", "to": "places", "label": "country", "variant": "dashed", "fromSide": "bottom", "toSide": "top" },
+    { "id": "check", "from": "scorer", "to": "checker", "label": "check", "fromSide": "top", "toSide": "bottom" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "What happens",
+      "items": [
+        "You open the app and give it a data file",
+        "Rows that share the same first-seen IP are grouped",
+        "The groups and the picture of links are saved"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "What stays outside",
+      "items": [
+        "The data file comes from you. The app does not call the Bitcoin network",
+        "Country names come from a list already on this computer"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "What is separated",
+      "items": [
+        "The uploaded file is not trusted until the loader accepts it",
+        "The screen and the server are separate programs",
+        "Saved results sit in their own database"
+      ]
+    }
+  ]
+}

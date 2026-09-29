@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "receiptId": "c226e10c-8d83-48ce-b9fc-0543bb970729",
+  "status": "current",
+  "command": "deliver",
+  "type": "architecture",
+  "input": "C:\\Users\\priya\\OneDrive\\Desktop\\sih\\.archify\\architecture-plain-20260930-040800\\candidate.json",
+  "output": "C:\\Users\\priya\\OneDrive\\Desktop\\sih\\.archify\\architecture-plain-20260930-040800\\runtime.html",
+  "specification": {
+    "sha256": "0662aad787dff61b91da609484927a02a733c10ba1f32f3f835ba32de6b3bc9b",
+    "bytes": 5925
+  },
+  "artifact": {
+    "sha256": "dc67be50b38005a1aff30dfdc29126d2e2a06266a3bfd3e756abac16850a189c",
+    "bytes": 765881
+  }
+}
