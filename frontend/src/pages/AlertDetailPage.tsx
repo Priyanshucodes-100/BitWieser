@@ -5,7 +5,7 @@ import { ExplainabilityPanel } from '@/components/intel/ExplainabilityPanel'
 import { ErrorState, Fact, PageSkeleton, RiskChip, RiskGauge } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
 import { useAsync } from '@/hooks/useAsync'
-import { truncateId } from '@/lib/format'
+import { countryName, countryPath, truncateId } from '@/lib/format'
 
 export function AlertDetailPage() {
   const { id = '' } = useParams()
@@ -55,10 +55,10 @@ export function AlertDetailPage() {
           </div>
           <RiskGauge value={alert.confidence} />
           <dl>
-            <Fact k="Path" v={alert.countryHops.join(' → ')} />
+            <Fact k="Path" v={countryPath(alert.countryHops)} />
             <Fact k="Wallets" v={String(alert.walletCount)} />
             {topIp ? <Fact k="First IP" v={topIp.ip} /> : null}
-            {topIp ? <Fact k="ASN" v={`${topIp.countryCode} · ${topIp.asn}`} /> : null}
+            {topIp ? <Fact k="ASN" v={`${countryName(topIp.countryCode)} · ${topIp.asn}`} /> : null}
           </dl>
           <div>
             <p className="label mb-2">Wallets</p>

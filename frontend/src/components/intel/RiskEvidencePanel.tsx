@@ -1,4 +1,4 @@
-import { formatBtc, formatTsShort } from '@/lib/format'
+import { countryName, formatBtc, formatTsShort } from '@/lib/format'
 import { riskBarClass } from '@/lib/risk'
 import { RiskChip } from '@/components/ui/primitives'
 import type { Evidence, Reason, RiskLevel } from '@/types/intel'
@@ -80,7 +80,7 @@ export function RiskEvidencePanel({
           {topTxs.map((ev) => (
             <li key={`${ev.txid}-${ev.timestamp}`} className="flex items-center justify-between gap-3 text-xs">
               <span className="min-w-0 truncate text-beige-muted">
-                {formatTsShort(ev.timestamp)} · {ev.geoCountry}
+                {formatTsShort(ev.timestamp)} · {countryName(ev.geoCountry)}
                 {ev.note ? ` · ${ev.note}` : ''}
               </span>
               <span className="shrink-0 tabular text-white">{formatBtc(ev.amountBtc)}</span>

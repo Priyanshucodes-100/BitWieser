@@ -42,6 +42,23 @@ export function truncateId(value: string, head = 10, tail = 6): string {
   return `${value.slice(0, head)}…${value.slice(-tail)}`
 }
 
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' })
+
+export function countryName(code: string): string {
+  if (code === 'ALL') return 'All'
+  const key = code.trim().toUpperCase()
+  if (!key || key === 'XX' || key === 'ZZ') return 'Unknown'
+  try {
+    return regionNames.of(key) ?? code
+  } catch {
+    return code
+  }
+}
+
+export function countryPath(codes: string[]): string {
+  return codes.map((code) => countryName(code)).join(' → ')
+}
+
 export function formatRelative(iso: string, nowIso: string): string {
   const then = new Date(iso).getTime()
   const now = new Date(nowIso).getTime()

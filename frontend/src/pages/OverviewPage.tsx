@@ -4,7 +4,7 @@ import { GraphView } from '@/components/graph/GraphCanvas'
 import { Banner, ConfidenceBar, ErrorState, KpiCard, PageHeader, PageSkeleton, RiskChip } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
 import { useAsync } from '@/hooks/useAsync'
-import { formatTsShort } from '@/lib/format'
+import { countryPath, formatTsShort } from '@/lib/format'
 import { BANNER_COPY } from '@/theme/tokens'
 
 export function OverviewPage() {
@@ -44,7 +44,7 @@ export function OverviewPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-white">{alert.title}</p>
                     <p className="truncate text-[11px] text-beige-muted">
-                      {alert.type} · {alert.countryHops.join(' → ')}
+                      {alert.type} · {countryPath(alert.countryHops)}
                     </p>
                   </div>
                   <RiskChip level={alert.risk} size="sm" />

@@ -7,7 +7,7 @@ import { RiskEvidencePanel } from '@/components/intel/RiskEvidencePanel'
 import { ConfidenceBar, ErrorState, PageHeader, PageSkeleton, RiskChip } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
 import { useAsync } from '@/hooks/useAsync'
-import { formatBtc, formatTs, formatTsShort, truncateId } from '@/lib/format'
+import { countryName, countryPath, formatBtc, formatTs, formatTsShort, truncateId } from '@/lib/format'
 
 export function EntityPage() {
   const { id = '' } = useParams()
@@ -57,7 +57,7 @@ export function EntityPage() {
           <ConfidenceBar value={cluster.confidence} level={cluster.risk} />
         </div>
         <span className="btn-pill btn-pill-ghost py-1 text-[11px]">{formatBtc(totalAmountBtc)}</span>
-        <span className="btn-pill btn-pill-ghost py-1 text-[11px]">{cluster.countryHops.join(' → ')}</span>
+        <span className="btn-pill btn-pill-ghost py-1 text-[11px]">{countryPath(cluster.countryHops)}</span>
       </div>
 
       <RiskEvidencePanel
@@ -117,7 +117,7 @@ export function EntityPage() {
                 <div>
                   <p className="font-mono text-white">{ip.ip}</p>
                   <p className="text-[11px] text-beige-muted">
-                    {ip.countryCode} · {ip.asn} {ip.asnOrg && ip.asnOrg !== ip.asn ? `· ${ip.asnOrg}` : ''}
+                    {countryName(ip.countryCode)} · {ip.asn} {ip.asnOrg && ip.asnOrg !== ip.asn ? `· ${ip.asnOrg}` : ''}
                   </p>
                 </div>
                 <span className="text-xs text-beige-muted">{ip.tags.join(', ') || 'first-seen'}</span>
@@ -137,7 +137,7 @@ export function EntityPage() {
                 <li key={`${hop.countryCode}-${hop.timestamp}-${i}`} className="flex items-start justify-between gap-3 text-sm">
                   <div>
                     <p className="text-white">
-                      {i + 1}. {hop.countryCode}
+                      {i + 1}. {countryName(hop.countryCode)}
                     </p>
                     <p className="text-[11px] text-beige-muted">
                       {hop.ip}
@@ -180,7 +180,7 @@ export function EntityPage() {
                 </div>
                 <p className="mt-1 font-mono text-white">{truncateId(ev.txid, 10, 6)}</p>
                 <p className="text-beige-muted">
-                  {ev.srcIp} → {ev.dstIp} · {ev.geoCountry} · {ev.asn}
+                  {ev.srcIp} → {ev.dstIp} · {countryName(ev.geoCountry)} · {ev.asn}
                 </p>
                 {ev.note ? <p className="text-beige-dim">{ev.note}</p> : null}
               </li>

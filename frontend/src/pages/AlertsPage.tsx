@@ -3,6 +3,7 @@ import { getAlerts } from '@/api/client'
 import { AlertsTable } from '@/components/intel/AlertsTable'
 import { EmptyState, ErrorState, PageHeader, PageSkeleton } from '@/components/ui/primitives'
 import { useAsync } from '@/hooks/useAsync'
+import { countryName } from '@/lib/format'
 import type { AlertFilters, AlertType, RiskLevel } from '@/types/intel'
 
 const RISK_OPTS: Array<RiskLevel | 'ALL'> = ['ALL', 'HIGH', 'MEDIUM', 'LOW']
@@ -62,11 +63,11 @@ export function AlertsPage() {
             aria-label="Filter by country hop"
             value={country}
             onChange={(e) => setCountry(e.target.value)}
-            className="control py-1"
+            className="control w-44 py-1"
           >
             {COUNTRY_OPTS.map((o) => (
               <option key={o} value={o}>
-                {o}
+                {countryName(o)}
               </option>
             ))}
           </select>

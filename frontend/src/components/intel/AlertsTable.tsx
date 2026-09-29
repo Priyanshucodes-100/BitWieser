@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ConfidenceBar, RiskChip } from '@/components/ui/primitives'
-import { formatTsShort } from '@/lib/format'
+import { countryPath, formatTsShort } from '@/lib/format'
 import type { Alert, AlertFilters } from '@/types/intel'
 
 interface Props {
@@ -66,7 +66,7 @@ export function AlertsTable({ rows, sortBy, sortDir, onSort }: Props) {
               <td className="px-3 py-2.5 tabular">{row.walletCount}</td>
               <td className="px-3 py-2.5">
                 <span className="tabular text-xs text-beige-dim">
-                  {row.countryHops.join(' → ')}
+                  {countryPath(row.countryHops)}
                   {row.countryHops.length > 2 ? ' · multi-hop' : ''}
                 </span>
               </td>

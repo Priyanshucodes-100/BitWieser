@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { Globe, Layers, Wallet, Waypoints, X } from 'lucide-react'
 import { RiskChip } from '@/components/ui/primitives'
-import { formatTs, truncateId } from '@/lib/format'
+import { countryName, formatTs, truncateId } from '@/lib/format'
 import type { GraphNode, GraphNodeKind } from '@/types/intel'
 
 const KIND_LABEL: Record<GraphNodeKind, string> = {
@@ -96,7 +96,7 @@ export function NodeMetaModal({ node, onClose }: { node: GraphNode; onClose: () 
             <div className="flex flex-wrap items-center gap-1.5">
               {hops.map((hop, index) => (
                 <span key={`${hop}-${index}`} className="flex items-center gap-1.5">
-                  <span className="btn-pill btn-pill-solid py-0.5 text-[11px]">{hop}</span>
+                  <span className="btn-pill btn-pill-solid py-0.5 text-[11px]">{countryName(hop)}</span>
                   {index < hops.length - 1 ? <span className="text-beige-muted">-</span> : null}
                 </span>
               ))}

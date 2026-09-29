@@ -6,7 +6,7 @@ import { GraphView } from '@/components/graph/GraphCanvas'
 import { EntitiesTable, filterEntityRows, sortEntityRows, type EntitySortKey } from '@/components/intel/EntitiesTable'
 import { EmptyState, ErrorState, PageHeader } from '@/components/ui/primitives'
 import { useAppState } from '@/context/AppState'
-import { formatTs } from '@/lib/format'
+import { countryName, formatTs } from '@/lib/format'
 import { visibleIngestGraph } from '@/lib/overviewGraph'
 import { cn } from '@/lib/utils'
 import type { AlertType, EntityTableRow, GraphPayload, RiskLevel } from '@/types/intel'
@@ -315,10 +315,10 @@ export function IngestPage() {
               </button>
             ))}
             <Field label="Country">
-              <select aria-label="Filter by country" value={country} onChange={(e) => setCountry(e.target.value)} className="control py-1">
+              <select aria-label="Filter by country" value={country} onChange={(e) => setCountry(e.target.value)} className="control w-44 py-1">
                 {countries.map((o) => (
                   <option key={o} value={o}>
-                    {o}
+                    {countryName(o)}
                   </option>
                 ))}
               </select>

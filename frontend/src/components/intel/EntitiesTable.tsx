@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom'
 import { ConfidenceBar, RiskChip } from '@/components/ui/primitives'
-import { formatBtc, formatTsShort } from '@/lib/format'
+import { countryPath, formatBtc, formatTsShort } from '@/lib/format'
 import type { AlertType, EntityTableRow, RiskLevel } from '@/types/intel'
 
 export type EntitySortKey = 'rank' | 'entity' | 'risk' | 'date' | 'amount' | 'type'
@@ -70,7 +70,7 @@ export function EntitiesTable({ rows, sortBy, sortDir, onSort }: Props) {
               <td className="px-3 py-2.5 tabular">{row.walletCount}</td>
               <td className="px-3 py-2.5">
                 <span className="tabular text-xs text-beige-dim">
-                  {row.countryHops.join(' → ')}
+                  {countryPath(row.countryHops)}
                   {row.countryHops.length > 2 ? ' · multi-hop' : ''}
                 </span>
               </td>
