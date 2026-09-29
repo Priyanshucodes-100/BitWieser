@@ -12,7 +12,7 @@ const { spawn, spawnSync } = require('node:child_process')
 const fs = require('node:fs')
 const http = require('node:http')
 const path = require('node:path')
-const { Client } = require('pg')
+const { ping, startEmbeddedPostgres } = require('./embedded-db.cjs')
 
 const root = path.resolve(__dirname, '..')
 const frontend = path.join(root, 'frontend')
@@ -41,23 +41,6 @@ function ensureInstall(dir) {
   }
 }
 
-async function pingPg(url) {
-  const client = new Client({ connectionString: url, connectionTimeoutMillis: 900 })
-  try {
-    await client.connect()
-    await client.query('SELECT 1')
-    await client.end()
-    return true
-  } catch {
-    try {
-      await client.end()
-    } catch {
-      /* ignore */
-    }
-    return false
-  }
-}
-
 async function waitForHealth(timeoutMs = 60000) {
   const started = Date.now()
   while (Date.now() - started < timeoutMs) {
@@ -78,36 +61,8 @@ async function waitForHealth(timeoutMs = 60000) {
   return false
 }
 
-async function startEmbeddedPostgres() {
-  const EmbeddedPostgres = (await import('embedded-postgres')).default
-  const alreadyInit = fs.existsSync(path.join(dataDir, 'PG_VERSION'))
-  const embedded = new EmbeddedPostgres({
-    databaseDir: dataDir,
-    user: 'chainwatch',
-    password: 'chainwatch',
-    port: pgPort,
-    persistent: true,
-    initdbFlags: ['--encoding=UTF8', '--locale=C'],
-    onLog: () => {},
-    onError: (message) => console.error('[postgres]', message),
-  })
-  if (!alreadyInit) {
-    console.log('Preparing local database (first run only)…')
-    await embedded.initialise()
-  }
-  await embedded.start()
-  try {
-    await embedded.createDatabase('chainwatch')
-  } catch {
-    /* exists */
-  }
-  const url = `postgres://chainwatch:chainwatch@127.0.0.1:${pgPort}/chainwatch`
-  const started = Date.now()
-  while (Date.now() - started < 20000) {
-    if (await pingPg(url)) return { url, embedded }
-    await new Promise((r) => setTimeout(r, 400))
-  }
-  throw new Error('Local database did not become ready.')
+async function startEmbeddedPostgresLocal() {
+  return startEmbeddedPostgres(dataDir, pgPort)
 }
 
 async function main() {
@@ -124,11 +79,11 @@ async function main() {
   let embedded = null
   if (!databaseUrl) {
     const local = 'postgres://chainwatch:chainwatch@127.0.0.1:5432/chainwatch'
-    if (await pingPg(local)) databaseUrl = local
+    if (await ping(local)) databaseUrl = local
   }
   if (!databaseUrl) {
     console.log('No Docker and no Postgres URL — starting a bundled database…')
-    const started = await startEmbeddedPostgres()
+    const started = await startEmbeddedPostgresLocal()
     databaseUrl = started.url
     embedded = started.embedded
   }
@@ -181,6 +136,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(err instanceof Error ? err.message : err)
+  console.error(err instanceof Error ? err.stack || err.message : err)
   process.exit(1)
 })
