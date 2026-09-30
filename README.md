@@ -21,9 +21,12 @@ The IP in a row is the peer that was seen first. It is not a person's identity. 
 
 A flag is something to look at. It is not proof.
 
-## Use the desktop app
+## Desktop app
 
-On Windows, install **ChainWatch Setup** from `desktop/release` on the machine that built it, or build it yourself (see below). Open ChainWatch from the Start menu. You do not need to install Node.js, Docker, or PostgreSQL. The app keeps its own database on that computer.
+You do not need Node.js for this. On the GitHub page, open **Releases**. Download the latest file named **ChainWatch Setup**. It ends in `.exe`. Run that file, then open ChainWatch from the Start menu. The app keeps its own database on that computer.
+
+Releases: https://github.com/Priyanshucodes-100/BitWieser/releases
+
 
 ## Run it from the code
 
