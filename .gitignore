@@ -13,9 +13,15 @@ backend/uploads/*
 
 # Desktop build artifacts (installer is 100MB+)
 desktop/release/
+desktop/release-*/
 desktop/pack/
 *.exe
 *.blockmap
 
-# Bundled Postgres for npm run live (no Docker)
+# Bundled Postgres for npm run live
 .pgdata-live/
+
+# Local diagram tool. Not part of the app.
+.agents/
+.archify/
+skills-lock.json

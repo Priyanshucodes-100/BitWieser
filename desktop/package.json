@@ -1,7 +1,7 @@
 {
   "name": "chainwatch-desktop",
   "private": true,
-  "version": "1.0.2",
+  "version": "1.0.8",
   "description": "Double-click wrapper for ChainWatch. Does not change the main project.",
   "main": "main.cjs",
   "type": "commonjs",

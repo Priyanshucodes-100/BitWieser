@@ -1,42 +1,24 @@
 # ChainWatch API
 
-Offline Fastify + PostgreSQL backend for SIH 26146 (NTRO). Synthetic RansomPay data only. No live intercept, no cloud intel APIs.
+Fastify and PostgreSQL. The screen talks to this API on port 3001.
 
 ## Run
 
-1. Start PostgreSQL (Docker or local).
+From the project folder, `npm run live` starts this API and the screen together.
 
-```bash
-# from repo root
-docker compose up -d db
-```
-
-Local Postgres is fine too. Create a database matching `DATABASE_URL`.
-
-2. Configure env and install.
+To run the API on its own:
 
 ```bash
 cd backend
-cp .env.example .env
-npm install
-npm run migrate
-npm run dev
-```
-
-API listens on `http://localhost:3001`. `GET /health` should return `{ "status": "ok", "offline": true, "service": "chainwatch-api" }`.
-
-3. Frontend (separate terminal).
-
-```bash
-cd frontend
-cp .env.example .env
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`. Vite may proxy `/api` to `:3001`; the client uses `VITE_API_URL` (default `http://localhost:3001`).
+If PostgreSQL is not already running, `npm run dev` starts a local database. You can also point `DATABASE_URL` in `.env` at a Postgres you installed yourself.
 
-Migrate also runs when the API starts, and seeds RansomPay (Entity-17) if the database is empty.
+`GET http://127.0.0.1:3001/health` returns `{ "status": "ok", "offline": true, "service": "chainwatch-api" }`.
+
+An empty database is filled with the demo case (Entity-17) on first start.
 
 ## Env
 

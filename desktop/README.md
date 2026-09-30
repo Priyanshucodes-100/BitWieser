@@ -22,7 +22,7 @@ Build on the **same OS** you will run it on. Postgres binaries inside the app ar
 cd desktop
 npm install
 
-npm run dist:win      # Windows → desktop/release/ChainWatch Setup 1.0.2.exe
+npm run dist:win      # Windows → desktop/release/ChainWatch Setup 1.0.8.exe
 npm run dist:mac      # macOS  → desktop/release/ChainWatch-1.0.0.dmg
 npm run dist:linux    # Linux  → desktop/release/ChainWatch-1.0.0.AppImage
 ```

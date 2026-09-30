@@ -1,117 +1,99 @@
 # ChainWatch
 
-Offline Bitcoin-traffic investigation console. Synthetic **RansomPay** data only.
+ChainWatch is an offline tool for looking at Bitcoin traffic captures. You load a file, and it turns the rows into a short list of leads. Each lead has a reason and a picture of the links.
 
-IP is first-seen peer, not identity. No live intercept, no seized data, no cloud intel APIs.
+The IP in a row is the peer that was seen first. It is not a person's identity. The app does not connect to the live Bitcoin network, and it does not call any cloud lookup service.
 
-## What it does
+## What you can do with it
 
-Load a capture (CSV / JSON / XML) or the demo dataset → **Generate data** → ranked entities with risk, filters, entity detail, and graphs.
+1. Load a CSV, JSON, or XML capture, or use the built-in demo.
+2. Press **Generate data**.
+3. Read the ranked list. HIGH means the score is 0.75 or more. MEDIUM is 0.40 or more.
+4. Open a lead to see why it was flagged, the wallets, the timeline, and the graph.
 
-Generate also runs an offline Isolation Forest on this file, peel-chain and CoinJoin-like checks, common-input ownership, and one-hop risk propagation. Country and ASN come from `backend/data/geoip/geoip.csv` when the capture omits them (drop GeoLite2 CSVs in that folder to replace the table). Write-up: `docs/approach.md`.
+## How a file is handled
 
-## Live (browser URL, no Docker)
+1. **Load.** The file is read. A row is kept only if it has a usable source IP or transaction id.
+2. **Fill gaps.** If the country or network owner is missing, it is filled from a list stored in `backend/data/geoip/geoip.csv`.
+3. **Group.** Rows with the same first-seen source IP become one entity. Addresses that spend together on one transaction are treated as one owner.
+4. **Score.** Written checks cover fast splits, the same IP showing up again, country changes, large or tiny amounts, peel chains, and CoinJoin-like patterns. An Isolation Forest then marks groups that look unusual in this file. A high-risk group can pass a smaller score one step to a linked group.
+5. **Save and show.** The leads and the graph are stored in PostgreSQL. You review them in the app.
 
-Need **Node.js 20+** only. Visitors open the URL in a browser. They do not install Docker or Node.
+A flag is something to look at. It is not proof.
 
-On the machine that will serve it:
+## Use the desktop app
+
+On Windows, install **ChainWatch Setup** from `desktop/release` on the machine that built it, or build it yourself (see below). Open ChainWatch from the Start menu. You do not need to install Node.js, Docker, or PostgreSQL. The app keeps its own database on that computer.
+
+## Run it from the code
+
+You need Node.js 20 or newer.
+
+From the project folder:
 
 ```bash
-cd <this-repo>
 npm install
 npm run live
 ```
 
-Open `http://127.0.0.1:3001`. First run prepares a local database and builds the UI (a few minutes). After that, `npm run live` is enough.
+The first run sets up a local database and builds the screen. That can take a few minutes. Then open `http://127.0.0.1:3001`. Stop it with Ctrl+C.
 
-If that PC is on a network, others can use `http://<that-pc-ip>:3001` while this command is running. Stop it with Ctrl+C.
-
-Cloud hosts (Render, Railway, a VPS) set `DATABASE_URL` and `PORT`; `npm run live` then uses that database instead of the bundled one.
-
-Docker is optional: `docker compose -f docker-compose.yml -f docker-compose.live.yml up -d --build`
-
-## Offline (what you already use)
-
-Keep using the **desktop installer** or local `npm run dev`. That path does not talk to the hosted site. Files and the database stay on your laptop.
-
-Local Vite on 5173 is unchanged: backend + frontend as below. Postgres is optional if you use `npm run live`.
-
-
-### 1. Postgres
-
-```bash
-docker compose up -d db
-```
-
-Or any local Postgres. Default URL:
-
-`postgres://chainwatch:chainwatch@localhost:5432/chainwatch`
-
-### 2. Backend (`http://localhost:3001`)
+If you want the screen and the API in two terminals instead:
 
 ```bash
 cd backend
-cp .env.example .env
 npm install
-npm run migrate
 npm run dev
 ```
-
-Health check:
-
-`GET http://localhost:3001/health` → `{ "status": "ok", "offline": true, "service": "chainwatch-api" }`
-
-Migrate also runs when the API starts. An empty database is seeded with the RansomPay demo (Entity-17).
-
-### 3. Frontend (`http://localhost:5173`)
 
 ```bash
 cd frontend
-cp .env.example .env
 npm install
 npm run dev
 ```
 
-`VITE_API_URL` defaults to `http://localhost:3001`.
+Open `http://localhost:5173`. The API is on port 3001. `npm run dev` in `backend` starts a database for you if one is not already running.
 
-## Demo
+## Screens
 
-1. **Ingest** → Load demo dataset, or upload `backend/fixtures/sample-capture.xml`.
-2. **Generate data**.
-3. Open an entity for wallets, IPs, timeline, risk, and that cluster’s graph.
-4. **Alerts** / **Graph** — Entity-17 is the seeded HIGH layering lead until you generate from a loaded capture.
-
-## Layout
-
-| Path | Role |
+| Screen | What it is for |
 | --- | --- |
-| `frontend/` | React 18 + Vite + TypeScript console |
-| `backend/` | Fastify API + Postgres |
-| `backend/fixtures/` | Sample CSV / XML captures |
-| `docker-compose.yml` | Local Postgres 16 |
-| `docker-compose.live.yml` | Hosted UI + API (does not replace the desktop app) |
+| Overview | Counts, top leads, and one cluster graph |
+| Ingest | Load a file or the demo, then generate |
+| Alerts | Filter the ranked list |
+| Entity | The reason, wallets, IPs, and timeline |
+| Graph | The links. Click a node to read it |
+| About | How scoring works, and the limits |
 
-## Env
+## Project folders
 
-**Backend** (`backend/.env`)
+| Folder | What is in it |
+| --- | --- |
+| `frontend/` | The screen (React, Vite, TypeScript) |
+| `backend/` | The API (Fastify) and the scoring |
+| `backend/fixtures/` | Small sample capture files |
+| `backend/data/geoip/` | The offline country and network list |
+| `desktop/` | The Windows app wrapper |
+| `docs/` | Notes on the approach, design, and open tasks |
 
-| Variable | Default |
+## Settings
+
+Copy `backend/.env.example` to `backend/.env` if you want to change the defaults.
+
+| Setting | Usual value |
 | --- | --- |
 | `PORT` | `3001` |
 | `DATABASE_URL` | `postgres://chainwatch:chainwatch@localhost:5432/chainwatch` |
-| `HOST` | `0.0.0.0` |
 | `CORS_ORIGIN` | `http://localhost:5173` |
-| `UPLOAD_DIR` | `uploads` |
-| `FRONTEND_DIST` | empty (set to frontend `dist` to serve UI on the API port) |
 
-**Frontend** (`frontend/.env`)
+The screen uses `VITE_API_URL` in `frontend/.env`. Leave it as `http://localhost:3001` when you run the two terminals. `npm run live` talks to the API on the same address, so it does not need that setting.
 
-| Variable | Default |
-| --- | --- |
-| `VITE_API_URL` | `http://localhost:3001` (empty = same origin, for live Docker) |
+## Build the Windows installer
 
-## Disclaimers
+From `desktop`, after `npm install`:
 
-- Offline — synthetic data
-- IP is first-seen peer, not identity
-- No live-intercept or seized data
+```bash
+npm run dist:win
+```
+
+The setup file is written for Windows. Install that file on the other computer. It does not need Node.js.

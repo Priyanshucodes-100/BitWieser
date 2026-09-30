@@ -12,14 +12,19 @@ export function OverviewPage() {
   const graph = useAsync(() => getGraph('entity-17').then((r) => r.data), 'overview-graph')
   const { selectNode } = useAppState()
 
-  if (overview.status === 'loading') return <PageSkeleton />
-  if (overview.status === 'error') return <ErrorState message={overview.error.message} onRetry={overview.reload} />
-
   return (
     <div>
       <PageHeader kicker="Overview" title="RansomPay" description="Ranked Bitcoin traffic leads." />
       <Banner>{BANNER_COPY}</Banner>
 
+      {overview.status === 'loading' ? <div className="mt-5"><PageSkeleton /></div> : null}
+      {overview.status === 'error' ? (
+        <div className="mt-5">
+          <ErrorState message={overview.error.message} onRetry={overview.reload} />
+        </div>
+      ) : null}
+      {overview.status === 'ready' ? (
+      <>
       <section className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-5">
         <KpiCard label="Events" value={overview.data.totalEvents} />
         <KpiCard label="Wallets" value={overview.data.uniqueWallets} />
@@ -90,6 +95,8 @@ export function OverviewPage() {
           03 Graph
         </Link>
       </section>
+      </>
+      ) : null}
     </div>
   )
 }

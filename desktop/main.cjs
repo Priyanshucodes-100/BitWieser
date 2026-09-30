@@ -207,8 +207,29 @@ function startStaticServer(root, port) {
   })
 }
 
-async function canUseExistingPostgres() {
-  const client = new Client({ ...EXISTING_PG, connectionTimeoutMillis: 800 })
+function explainError(err) {
+  if (err == null || err === '') return 'Unknown startup error.'
+  if (typeof err === 'string') return err
+  if (err instanceof Error && err.message) return err.message
+  try {
+    return JSON.stringify(err)
+  } catch {
+    return String(err)
+  }
+}
+
+function isPortFree(port) {
+  return new Promise((resolve) => {
+    const server = http.createServer()
+    server.once('error', () => resolve(false))
+    server.listen(port, '127.0.0.1', () => {
+      server.close(() => resolve(true))
+    })
+  })
+}
+
+async function canConnect(url) {
+  const client = new Client({ connectionString: url, connectionTimeoutMillis: 800 })
   try {
     await client.connect()
     await client.query('SELECT 1')
@@ -224,28 +245,75 @@ async function canUseExistingPostgres() {
   }
 }
 
+function clearStalePid(databaseDir) {
+  const pidFile = path.join(databaseDir, 'postmaster.pid')
+  if (!fs.existsSync(pidFile)) return
+  const pid = Number(String(fs.readFileSync(pidFile, 'utf8')).split(/\r?\n/)[0])
+  if (!pid) {
+    fs.rmSync(pidFile, { force: true })
+    return
+  }
+  try {
+    process.kill(pid, 0)
+  } catch {
+    fs.rmSync(pidFile, { force: true })
+  }
+}
+
+async function canUseExistingPostgres() {
+  return canConnect(
+    `postgres://${EXISTING_PG.user}:${EXISTING_PG.password}@${EXISTING_PG.host}:${EXISTING_PG.port}/${EXISTING_PG.database}`,
+  )
+}
+
 async function startEmbeddedPostgres() {
+  const running = `postgres://chainwatch:chainwatch@127.0.0.1:${PG_EMBEDDED_PORT}/chainwatch`
+  if (await canConnect(running)) return running
+
+  let port = PG_EMBEDDED_PORT
+  if (!(await isPortFree(port))) {
+    port = PG_EMBEDDED_PORT + 1
+    while (!(await isPortFree(port))) {
+      port += 1
+      if (port > PG_EMBEDDED_PORT + 20) {
+        throw new Error('No free local port for the database.')
+      }
+    }
+  }
+
   const EmbeddedPostgres = (await import('embedded-postgres')).default
   const databaseDir = path.join(app.getPath('userData'), 'pgdata-utf8')
+  clearStalePid(databaseDir)
   const alreadyInit = fs.existsSync(path.join(databaseDir, 'PG_VERSION'))
+  let pgLog = ''
   embeddedPg = new EmbeddedPostgres({
     databaseDir,
     user: 'chainwatch',
     password: 'chainwatch',
-    port: PG_EMBEDDED_PORT,
+    port,
     persistent: true,
     initdbFlags: ['--encoding=UTF8', '--locale=C'],
-    onLog: () => {},
-    onError: (message) => console.error('[postgres]', message),
+    onLog: (message) => {
+      pgLog += String(message)
+    },
+    onError: (message) => {
+      pgLog += String(message)
+    },
   })
-  if (!alreadyInit) await embeddedPg.initialise()
-  await embeddedPg.start()
+  try {
+    if (!alreadyInit) await embeddedPg.initialise()
+    await embeddedPg.start()
+  } catch (err) {
+    const detail = explainError(err)
+    const tail = pgLog.trim().slice(-700)
+    throw new Error(`Local database did not start.\n${detail}${tail ? `\n\n${tail}` : ''}`)
+  }
   try {
     await embeddedPg.createDatabase('chainwatch')
   } catch {
     /* already exists */
   }
-  const url = `postgres://chainwatch:chainwatch@127.0.0.1:${PG_EMBEDDED_PORT}/chainwatch`
+  const url = `postgres://chainwatch:chainwatch@127.0.0.1:${port}/chainwatch`
   await waitForPostgres(url)
   return url
 }
@@ -261,6 +329,7 @@ function startBackend(databaseUrl, uiOrigin) {
     env: {
       ...process.env,
       ELECTRON_RUN_AS_NODE: '1',
+      HOST: '127.0.0.1',
       PORT: String(API_PORT),
       DATABASE_URL: databaseUrl,
       CORS_ORIGIN: uiOrigin,
@@ -294,9 +363,9 @@ async function boot() {
   }
 
   const existingDbUrl = `postgres://${EXISTING_PG.user}:${EXISTING_PG.password}@${EXISTING_PG.host}:${EXISTING_PG.port}/${EXISTING_PG.database}`
-  const apiAlreadyUp = !isPackaged() && (await fetchOk(`${API_URL}/health`))
+  const apiAlreadyUp = await fetchOk(`${API_URL}/health`)
 
-  if (apiAlreadyUp && (await fetchOk('http://127.0.0.1:5173'))) {
+  if (apiAlreadyUp && !isPackaged() && (await fetchOk('http://127.0.0.1:5173'))) {
     closeSplash()
     createMainWindow('http://127.0.0.1:5173')
     return
@@ -306,6 +375,11 @@ async function boot() {
   const uiOrigin = `http://${UI_HOST}:${uiPort}`
 
   if (!apiAlreadyUp) {
+    if (!(await isPortFree(API_PORT))) {
+      throw new Error(
+        'Port 3001 is already in use by another program. Close that program, then open ChainWatch again.',
+      )
+    }
     showSplash('Starting the local database…')
     const databaseUrl =
       !isPackaged() && (await canUseExistingPostgres()) ? existingDbUrl : await startEmbeddedPostgres()
@@ -357,7 +431,7 @@ if (!gotLock) {
       await boot()
     } catch (err) {
       closeSplash()
-      const message = err instanceof Error ? err.message : String(err)
+      const message = explainError(err)
       dialog.showErrorBox('ChainWatch could not start', message)
       app.quit()
     }
